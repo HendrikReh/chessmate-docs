@@ -29,6 +29,8 @@ website:
           - GUIDELINES.md
           - PROMPTS.md
 
+filters:
+  - mermaid
 format:
   html:
     theme:

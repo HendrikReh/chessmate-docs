@@ -1,3 +1,10 @@
+---
+title: "Architecture Overview"
+format:
+  html:
+    mermaid: true
+---
+
 # Architecture Overview
 
 ## System Goals
