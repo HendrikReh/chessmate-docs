@@ -1,0 +1,22 @@
+---
+title: "Chessmate Documentation"
+page-layout: article
+---
+
+Chessmate is a self-hosted chess tutor that ingests PGNs, enriches metadata, and surfaces games through a hybrid of structured filters and semantic search. This site curates the living documentation set that guides contributors, operators, and agents.
+
+## Start Here
+- [Chessmate for Dummies](CHESSMATE_FOR_DUMMIES.md): end-to-end walk through of ingestion, embedding, and query flows.
+- [Implementation Plan](IMPLEMENTATION_PLAN.md): phased roadmap and milestone status.
+
+## Architecture & Operations
+- [Architecture Overview](ARCHITECTURE.md): system goals, component responsibilities, and diagrams.
+- [Operations Playbook](OPERATIONS.md): environment bootstrap, monitoring, and runbooks.
+- [Troubleshooting](TROUBLESHOOTING.md): smoke tests and common fixes.
+
+## Team Practices
+- [Developer Handbook](DEVELOPER.md): onboarding, tooling, and workflows.
+- [Collaboration & Quality Guidelines](GUIDELINES.md): communication and coding standards.
+- [LLM Prompts](PROMPTS.md): reusable prompt templates for chess analysis.
+
+Explore the sidebar for the full contents. Contributions to documentation follow the same review discipline as code—submit pull requests with context, testing notes, and links to related issues.

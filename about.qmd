@@ -1,0 +1,13 @@
+---
+title: "About"
+page-layout: article
+---
+
+This documentation hub tracks the current state of the Chessmate platform:
+
+- **Purpose**: capture architecture decisions, operational runbooks, onboarding guides, and LLM prompt catalogues in one searchable site.
+- **Source of truth**: content mirrors the markdown stored under `docs/` in the primary Chessmate repository and is synchronized into this Quarto project.
+- **Publishing**: render locally with `quarto preview` or deploy to GitHub Pages following the [Quarto publishing guide](https://quarto.org/docs/publishing/github-pages.html).
+- **Contributions**: propose edits through pull requests, pairing doc updates with the code changes they describe.
+
+Questions or suggestions? Open an issue in the Chessmate repository so the team can discuss and track follow-up work.

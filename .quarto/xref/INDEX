@@ -1,0 +1,32 @@
+{
+  "GUIDELINES.md": {
+    "GUIDELINES.html": "613720b4"
+  },
+  "ARCHITECTURE.md": {
+    "ARCHITECTURE.html": "63d5938e"
+  },
+  "IMPLEMENTATION_PLAN.md": {
+    "IMPLEMENTATION_PLAN.html": "4be6d2b5"
+  },
+  "OPERATIONS.md": {
+    "OPERATIONS.html": "4729b4d2"
+  },
+  "index.qmd": {
+    "index.html": "87f82b8e"
+  },
+  "CHESSMATE_FOR_DUMMIES.md": {
+    "CHESSMATE_FOR_DUMMIES.html": "a78b3ecd"
+  },
+  "PROMPTS.md": {
+    "PROMPTS.html": "e36d0f71"
+  },
+  "about.qmd": {
+    "about.html": "0d7f630c"
+  },
+  "DEVELOPER.md": {
+    "DEVELOPER.html": "2c42a293"
+  },
+  "TROUBLESHOOTING.md": {
+    "TROUBLESHOOTING.html": "64f4ca01"
+  }
+}

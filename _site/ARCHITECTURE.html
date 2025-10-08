@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.25">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>architecture – Chessmate Documentation</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-b337f537912f5ab074b938eebad4c5d7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    </a>
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Chessmate Documentation</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link active" href="./index.html" aria-current="page"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ARCHITECTURE.html">Architecture &amp; Ops</a></li><li class="breadcrumb-item"><a href="./ARCHITECTURE.html">Architecture Overview</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+      <a href="./index.html" class="sidebar-logo-link">
+      </a>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Overview</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Chessmate Documentation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CHESSMATE_FOR_DUMMIES.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Complete System Overview: From Chess Game to Natural Language Search</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./IMPLEMENTATION_PLAN.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Implementation Plan</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Architecture &amp; Ops</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ARCHITECTURE.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Architecture Overview</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./OPERATIONS.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Operations Playbook</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./TROUBLESHOOTING.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Troubleshooting</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Team Practices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./DEVELOPER.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Developer Handbook</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./GUIDELINES.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Collaboration &amp; Quality Guidelines</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./PROMPTS.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">LLM Prompts for Chess Analysis</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#architecture-overview" id="toc-architecture-overview" class="nav-link active" data-scroll-target="#architecture-overview">Architecture Overview</a>
+  <ul class="collapse">
+  <li><a href="#system-goals" id="toc-system-goals" class="nav-link" data-scroll-target="#system-goals">System Goals</a></li>
+  <li><a href="#visual-overview" id="toc-visual-overview" class="nav-link" data-scroll-target="#visual-overview">Visual Overview</a></li>
+  <li><a href="#component-overview" id="toc-component-overview" class="nav-link" data-scroll-target="#component-overview">Component Overview</a></li>
+  <li><a href="#data-flow" id="toc-data-flow" class="nav-link" data-scroll-target="#data-flow">Data Flow</a></li>
+  <li><a href="#storage-design" id="toc-storage-design" class="nav-link" data-scroll-target="#storage-design">Storage Design</a></li>
+  <li><a href="#module-boundaries" id="toc-module-boundaries" class="nav-link" data-scroll-target="#module-boundaries">Module Boundaries</a></li>
+  <li><a href="#service-responsibilities" id="toc-service-responsibilities" class="nav-link" data-scroll-target="#service-responsibilities">Service Responsibilities</a></li>
+  <li><a href="#sequence-diagrams" id="toc-sequence-diagrams" class="nav-link" data-scroll-target="#sequence-diagrams">Sequence Diagrams</a>
+  <ul class="collapse">
+  <li><a href="#ingestion-embedding" id="toc-ingestion-embedding" class="nav-link" data-scroll-target="#ingestion-embedding">Ingestion + Embedding</a></li>
+  <li><a href="#query-prototype" id="toc-query-prototype" class="nav-link" data-scroll-target="#query-prototype">Query Prototype</a></li>
+  <li><a href="#embedding-job-state-transitions" id="toc-embedding-job-state-transitions" class="nav-link" data-scroll-target="#embedding-job-state-transitions">Embedding Job State Transitions</a></li>
+  <li><a href="#module-relationships" id="toc-module-relationships" class="nav-link" data-scroll-target="#module-relationships">Module Relationships</a></li>
+  <li><a href="#failure-path-example-embedding-error" id="toc-failure-path-example-embedding-error" class="nav-link" data-scroll-target="#failure-path-example-embedding-error">Failure Path Example (Embedding Error)</a></li>
+  </ul></li>
+  <li><a href="#external-integrations" id="toc-external-integrations" class="nav-link" data-scroll-target="#external-integrations">External Integrations</a></li>
+  <li><a href="#future-enhancements" id="toc-future-enhancements" class="nav-link" data-scroll-target="#future-enhancements">Future Enhancements</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./ARCHITECTURE.html">Architecture &amp; Ops</a></li><li class="breadcrumb-item"><a href="./ARCHITECTURE.html">Architecture Overview</a></li></ol></nav></header>
+
+
+
+
+<section id="architecture-overview" class="level1">
+<h1>Architecture Overview</h1>
+<section id="system-goals" class="level2">
+<h2 class="anchored" data-anchor-id="system-goals">System Goals</h2>
+<ul>
+<li>Answer natural-language chess questions by combining structured metadata with vector similarity.</li>
+<li>Self-host PostgreSQL + Qdrant; rely on OpenAI only for embedding generation.</li>
+<li>Offer OCaml CLIs and HTTP services to support ingestion and retrieval workflows.</li>
+</ul>
+</section>
+<section id="visual-overview" class="level2">
+<h2 class="anchored" data-anchor-id="visual-overview">Visual Overview</h2>
+<pre class="mermaid"><code>flowchart TD
+  subgraph Clients
+    CLI["CLI (chessmate)"]
+  end
+
+  subgraph Services
+    API["Query API (Opium)"]
+    Worker["Embedding Worker"]
+  end
+
+  subgraph Storage
+    PG[("PostgreSQL")]
+    QD[("Qdrant")]
+  end
+
+  subgraph Integrations
+    OpenAI[("OpenAI Embeddings")]
+  end
+
+  CLI --&gt;|"HTTP /query"| API
+  CLI --&gt;|"Ingest PGN"| PG
+  API --&gt;|"Metadata lookups"| PG
+  API --&gt;|"Vector search"| QD
+  Worker --&gt;|"Embedding jobs"| PG
+  Worker --&gt;|"Vectors"| QD
+  Worker --&gt;|"Embed FENs"| OpenAI
+  PG --&gt;|"Opening metadata"| CLI</code></pre>
+</section>
+<section id="component-overview" class="level2">
+<h2 class="anchored" data-anchor-id="component-overview">Component Overview</h2>
+<ul>
+<li><strong>CLI &amp; API Layer</strong>: <code>chessmate ingest</code> / <code>chessmate query</code> commands and the Opium-based <code>/query</code> service route user intent into the platform.</li>
+<li><strong>Ingestion pipeline</strong> (<code>lib/chess/pgn_parser</code>, <code>lib/storage/repo_postgres</code>): parses PGNs, derives FEN snapshots, extracts ECO/opening metadata, persists games/positions/embedding jobs in Postgres, and now enforces a configurable guard to pause ingestion when the embedding queue is saturated.</li>
+<li><strong>Embedding pipeline</strong> (<code>services/embedding_worker</code>): polls <code>embedding_jobs</code>, batches FEN strings, calls OpenAI embeddings, writes vectors to Qdrant, and records <code>vector_id</code> back in Postgres. Operators track throughput with <code>scripts/embedding_metrics.sh</code> while scaling workers via the <code>--workers</code> flag and rely on <code>CHESSMATE_MAX_PENDING_EMBEDDINGS</code> to keep ingest pressure in check.</li>
+<li><strong>Hybrid query pipeline</strong> (<code>lib/query</code>, <code>lib/chess/openings</code>): converts natural-language questions into structured filters (openings/ratings/phases), plans hybrid metadata/vector lookups, and assembles responses.</li>
+</ul>
+</section>
+<section id="data-flow" class="level2">
+<h2 class="anchored" data-anchor-id="data-flow">Data Flow</h2>
+<pre class="mermaid"><code>graph LR
+  A[PGN File] --&gt;|Parse headers/SAN/FEN| B[Ingestion Pipeline]
+  B --&gt;|Persist players/games/positions| C[(PostgreSQL)]
+  B --&gt;|Enqueue FEN jobs| D[embedding_jobs]
+  E[Embedding Worker] --&gt;|Poll jobs| D
+  E --&gt;|Call embeddings| F[(OpenAI API)]
+  E --&gt;|Upsert vectors| G[(Qdrant)]
+  E --&gt;|Update vector_id| C
+  H[Query CLI/API] --&gt;|Natural language question| I[Query Intent]
+  I --&gt;|Opening/rating filters| J[Planner]
+  J --&gt;|Metadata lookup| C
+  J --&gt;|Vector lookup| G
+  J --&gt;|Formatted response| H</code></pre>
+<p>Detailed steps: 1. <strong>Ingest</strong>: PGN file → parse headers/SAN/FEN → extract player, result, ECO/opening slug → persist to Postgres (<code>games</code>, <code>players</code>, <code>positions</code>) → enqueue <code>embedding_jobs</code> for each FEN, with a guard on queue depth (<code>CHESSMATE_MAX_PENDING_EMBEDDINGS</code>) to keep backlog manageable. 2. <strong>Embed</strong>: Worker polls pending jobs → batches FENs → calls OpenAI embeddings → upserts into Qdrant (vector + payload) → updates Postgres <code>positions.vector_id</code> and job status. 3. <strong>Query</strong>: CLI/API receives question → <code>Query_intent.analyse</code> normalizes text, maps openings via ECO catalogue, infers rating/phase filters → prototype planner scores curated vector/keyword results (future: live Postgres + Qdrant queries) → aggregates response via <code>Result_formatter</code>.</p>
+</section>
+<section id="storage-design" class="level2">
+<h2 class="anchored" data-anchor-id="storage-design">Storage Design</h2>
+<ul>
+<li><strong>PostgreSQL</strong>: <code>games</code> (players, ECO, opening_slug), <code>positions</code> (ply, fen, san, vector_id), <code>embedding_jobs</code>, <code>annotations</code>. Additional indexes on ratings, ECO, opening slug, and vector_id accelerate filtering.</li>
+<li><strong>Qdrant</strong>: <code>positions</code> collection holding dense FEN embeddings and payload fields (player names, ECO range, move metadata) to support hybrid queries.</li>
+<li><strong>Volumes</strong>: <code>data/postgres</code> and <code>data/qdrant</code> mount persistent storage under Docker Compose for reproducible local environments.</li>
+</ul>
+</section>
+<section id="module-boundaries" class="level2">
+<h2 class="anchored" data-anchor-id="module-boundaries">Module Boundaries</h2>
+<ul>
+<li><code>lib/chess</code>: PGN/FEN parsing, ECO/opening catalogue, domain metadata models.</li>
+<li><code>lib/storage</code>: Postgres primitives (<code>Repo_postgres</code>), embedding queue helpers, future Qdrant adapter.</li>
+<li><code>lib/embedding</code>: OpenAI client stubs, payload builders, caching (planned).</li>
+<li><code>lib/query</code>: intent parsing, hybrid planner scaffold, result formatting.</li>
+<li><code>lib/cli</code>: shared CLI glue + ingest/query subcommands.</li>
+<li><code>services/</code>: standalone executables (embedding worker, API prototype).</li>
+</ul>
+</section>
+<section id="service-responsibilities" class="level2">
+<h2 class="anchored" data-anchor-id="service-responsibilities">Service Responsibilities</h2>
+<ul>
+<li><strong>Query API (prototype)</strong>: Opium HTTP service (<code>/query</code>) that parses intent, applies opening/rating filters, and returns curated responses. When <code>AGENT_API_KEY</code> is present it also invokes GPT-5 to re-rank results, add explanations/themes, and reports token usage. Future work: wire to live Postgres/Qdrant, expose metrics/health endpoints.</li>
+<li><strong>Embedding Worker</strong>: long-running job consumer with retry/backoff, batching, and state transitions.</li>
+<li><strong>Background Jobs</strong> (planned): re-embedding runs, data validation, analytics refresh pipelines.</li>
+</ul>
+</section>
+<section id="sequence-diagrams" class="level2">
+<h2 class="anchored" data-anchor-id="sequence-diagrams">Sequence Diagrams</h2>
+<section id="ingestion-embedding" class="level3">
+<h3 class="anchored" data-anchor-id="ingestion-embedding">Ingestion + Embedding</h3>
+<pre class="mermaid"><code>sequenceDiagram
+  participant CLI as chessmate ingest
+  participant Parser as PGN Parser
+  participant PG as PostgreSQL
+  participant Jobs as embedding_jobs
+  participant Worker as Embedding Worker
+  participant OpenAI as OpenAI API
+  participant QD as Qdrant
+
+  CLI-&gt;&gt;Parser: parse PGN (headers, SAN, FEN)
+  Parser--&gt;&gt;CLI: metadata + moves
+  CLI-&gt;&gt;PG: INSERT game/player/positions
+  CLI-&gt;&gt;Jobs: INSERT embedding job rows
+  Worker-&gt;&gt;Jobs: fetch pending jobs
+  Worker-&gt;&gt;PG: mark job started
+  Worker-&gt;&gt;OpenAI: embed FEN batch
+  OpenAI--&gt;&gt;Worker: vectors
+  Worker-&gt;&gt;QD: upsert vectors + payload
+  Worker-&gt;&gt;PG: mark job completed (vector_id)</code></pre>
+</section>
+<section id="query-prototype" class="level3">
+<h3 class="anchored" data-anchor-id="query-prototype">Query Prototype</h3>
+<pre class="mermaid"><code>sequenceDiagram
+  participant User as User/CLI
+  participant API as Query API
+  participant Intent as Query Intent
+  participant Planner as Hybrid Planner
+  participant Catalog as Openings Catalogue
+  participant Store as PostgreSQL/Qdrant (planned)
+
+  User-&gt;&gt;API: GET/POST /query
+  API-&gt;&gt;Intent: analyse(question)
+  Intent-&gt;&gt;Catalog: map openings to ECO ranges
+  Catalog--&gt;&gt;Intent: opening slug + range
+  Intent--&gt;&gt;Planner: plan (filters, keywords, rating)
+  Planner-&gt;&gt;Store: (future) fetch metadata + vectors
+  Planner--&gt;&gt;API: curated results (prototype dataset)
+  API--&gt;&gt;User: JSON response (plan + results)</code></pre>
+</section>
+<section id="embedding-job-state-transitions" class="level3">
+<h3 class="anchored" data-anchor-id="embedding-job-state-transitions">Embedding Job State Transitions</h3>
+<pre class="mermaid"><code>stateDiagram-v2
+  [*] --&gt; Pending
+  Pending --&gt; InProgress: worker polls job
+  InProgress --&gt; Completed: vector stored + job updated
+  InProgress --&gt; Failed: OpenAI/Qdrant error
+  Failed --&gt; Pending: retry/backoff strategy
+  Completed --&gt; [*]</code></pre>
+</section>
+<section id="module-relationships" class="level3">
+<h3 class="anchored" data-anchor-id="module-relationships">Module Relationships</h3>
+<pre class="mermaid"><code>classDiagram
+  class Chess {
+    +Pgn_parser
+    +Game_metadata
+    +Openings
+    +Pgn_to_fen
+  }
+  class Storage {
+    +Repo_postgres
+    +Ingestion_queue
+  }
+  class Embedding {
+    +Embedding_client
+    +Embeddings_cache
+    +Vector_payload
+  }
+  class Query {
+    +Query_intent
+    +Hybrid_planner
+    +Result_formatter
+  }
+  class CLI {
+    +Ingest_command
+    +Search_command
+    +Cli_common
+  }
+  class Services {
+    +Embedding_worker
+    +Chessmate_api
+  }
+  Chess --&gt; Storage : persist games/positions
+  Chess --&gt; Query : opening catalogue
+  Storage --&gt; Embedding : enqueue jobs
+  Embedding --&gt; Storage : update vector_id
+  Query --&gt; Storage : metadata lookups (planned)
+  Query --&gt; Embedding : vector scoring (planned)
+  CLI --&gt; Storage : ingest (DATABASE_URL)
+  CLI --&gt; Services : query via HTTP API
+  Services --&gt; Query : leverage planner modules</code></pre>
+</section>
+<section id="failure-path-example-embedding-error" class="level3">
+<h3 class="anchored" data-anchor-id="failure-path-example-embedding-error">Failure Path Example (Embedding Error)</h3>
+<pre class="mermaid"><code>sequenceDiagram
+  participant Worker as Embedding Worker
+  participant Jobs as embedding_jobs
+  participant PG as PostgreSQL
+  participant OpenAI as OpenAI API
+
+  Worker-&gt;&gt;Jobs: fetch pending job
+  Worker-&gt;&gt;PG: mark job started
+  Worker-&gt;&gt;OpenAI: embed FEN batch
+  OpenAI--&gt;&gt;Worker: error response / rate limit
+  Worker-&gt;&gt;PG: mark job failed (last_error)
+  Worker--&gt;&gt;Jobs: schedule retry after backoff</code></pre>
+</section>
+</section>
+<section id="external-integrations" class="level2">
+<h2 class="anchored" data-anchor-id="external-integrations">External Integrations</h2>
+<ul>
+<li>OpenAI embeddings API (ingestion/worker).</li>
+<li>Future: Qdrant live queries (HTTP/gRPC) in the planner.</li>
+<li>Observability (planned): structured logging + Prometheus metrics for worker/API.</li>
+</ul>
+</section>
+<section id="future-enhancements" class="level2">
+<h2 class="anchored" data-anchor-id="future-enhancements">Future Enhancements</h2>
+<ul>
+<li>Replace heuristic planner with live Postgres/Qdrant hybrid search (RRF, payload filters).</li>
+<li>Intent upgrades: expand opening catalogue, consider LLM-assisted classification with deterministic fallbacks.</li>
+<li>Add Redis (or similar) caching for frequently asked questions / evaluation fixtures.</li>
+<li>Deployment hardening: containerize API/worker, add CI integration tests, explore Kubernetes/Nomad rollouts.</li>
+</ul>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
