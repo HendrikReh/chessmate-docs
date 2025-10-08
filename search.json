@@ -1,0 +1,1005 @@
+[
+  {
+    "objectID": "TROUBLESHOOTING.html",
+    "href": "TROUBLESHOOTING.html",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Common symptoms, quick diagnostics, and proven fixes for keeping Chessmate healthy.\n\n\nRun this loop whenever you reset dependencies or suspect ingest/embedding is wedged. Use scripts/embedding_metrics.sh between steps to verify queue health and estimated finish times.\n\nCheck Postgres connectivity\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate -c \"SELECT 1\"\nIngest a known-good PGN (TWIC 1611 ships with the repo fixtures)\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\ndune exec chessmate -- ingest data/games/twic1611.pgn\nConfirm positions land with vector stubs\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT COUNT(*) FROM positions WHERE vector_id IS NOT NULL\"\nStart the embedding worker with exported env\nset -a\nsource .env\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\nQDRANT_URL=http://localhost:6333 dune exec embedding_worker -- --workers 3 --poll-sleep 1.0\nAdjust --workers/--poll-sleep based on throughput. (Value of 3 works well on a laptop.)\nWatch the queue drain\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT status, COUNT(*) FROM embedding_jobs GROUP BY status ORDER BY status\"\npending should drop while completed rises. If logs still show Malformed job row, pull the latest code - psql now emits real tab delimiters so rows parse correctly.\n\n\n\n\n\n\n\nSymptom psql ... invalid byte sequence for encoding \"UTF8\" during chessmate ingest.\nCause Many public PGNs (including TWIC) ship as Windows-1252.\nFix Re-encode before ingestion:\niconv -f WINDOWS-1252 -t UTF-8//TRANSLIT data/games/twic1611.pgn &gt; /tmp/twic1611.utf8.pgn\ncp /tmp/twic1611.utf8.pgn data/games/twic1611.pgn\nTransliteration keeps smart quotes/dashes readable. Re-run ingest afterwards.\n\n\n\n\n\nSymptom Errors such as PGN game #315 \"PGN contained no moves\".\nFix Run the preflight command to surface bad blocks:\ndune exec chessmate -- twic-precheck data/games/twic1611.pgn\nThe report names each offender (missing [Result], editorial fragments, etc.). Clean up the flagged entries, then re-run ingestion - completed games remain in Postgres.\n\n\n\n\n\nSymptom Log stops at Stored game 3 with 65 positions despite a large source file.\nFix Update to the multi-game ingest (already merged). Ensure you are running the latest binary; legacy builds processed a single game.\n\n\n\n\n\n\n\n\nSymptom opam: \"open\" failed on ... config.lock: Operation not permitted.\nFix Some shells sandbox writes. Run eval $(opam env --set-switch) (or opam env --set-switch | source) instead of opam switch set ..\n\n\n\n\n\nSymptom Program 'chessmate_api' not found! when starting the API via Dune.\nFix Use the public name dune exec -- chessmate-api --port 8080 or the full path dune exec services/api/chessmate_api.exe -- --port 8080.\n\n\n\n\n\n\n\n\nSymptom API replies only contain SQL fallbacks with warnings.\nFix Ensure QDRANT_URL points to a reachable instance. The API degrades gracefully but warns until vector search returns.\n\n\n\n\n\nSymptom Queue size grows, worker logs stay quiet.\nFix Confirm the worker is running with valid env:\ndune exec chessmate -- embedding-worker\nDouble-check OPENAI_API_KEY and endpoint settings. When the worker logs Malformed job row, update to the latest code (psql field separator fix). While triaging, run\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/embedding_metrics.sh --interval 120\nto ensure new completions are flowing; a flat throughput/min indicates the worker is stuck before reaching OpenAI.\n\n\n\n\n\nSymptom /query keeps warning about missing vectors even though the worker is active.\nFix Validate the pipeline end-to-end:\n\nQueue depth\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT status, COUNT(*) FROM embedding_jobs GROUP BY status\"\npending should fall while completed rises.\nPostgres vector IDs\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT COUNT(*) FROM positions WHERE vector_id IS NOT NULL\"\nNon-zero counts mean vectors are being attached.\nQdrant collection\ncurl \"$QDRANT_URL/collections/positions/points/count\"\nExpect a positive count; zero implies vectors were not pushed. If any checkpoint flatlines, inspect worker logs for rate limits or credential issues.\n\n\n\n\n\n\nSymptom API/CLI responses include warnings such as Agent evaluation failed or lack agent_score even though the key is set.\nFix\nConfirm AGENT_API_KEY and internet access; GPT-5 errors surface in the warning message.\nEnsure AGENT_REASONING_EFFORT is valid (minimal|low|medium|high) and that the API key has access to the selected model.\nInspect [agent-telemetry] JSON lines for latency, token usage, and cost estimates—persistent spikes or missing usage often explain slowdowns and quota overruns.\nIf a cache is enabled (AGENT_CACHE_CAPACITY), stale responses can persist until the cache evicts entries—drop the capacity or restart the API to clear it after schema/prompt changes.\nWhen the agent is temporarily disabled, results fall back to heuristic scoring—address the warning before relying on explanations.\n\n\n\n\n\n\nMonitor continuously. scripts/embedding_metrics.sh --interval 120 --log logs/embedding-metrics.log\nScale workers safely. Prefer a single process with multiple loops:\nset -a\nsource .env\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\nQDRANT_URL=http://localhost:6333 dune exec embedding_worker -- --workers 3 --poll-sleep 1.0\nIncrease --workers gradually (or stagger extra processes if you must) and watch scripts/embedding_metrics.sh for rising throughput or new failures (429s, connection drops).\nPrune stale jobs. When re-ingesting PGNs, run scripts/prune_pending_jobs.sh 2000 to mark pending jobs whose positions already hold a vector_id as completed before queueing more work.\nThrottle ingest automatically. The ingest CLI now enforces a guard based on CHESSMATE_MAX_PENDING_EMBEDDINGS (default 250000). Set it to a higher value to push more load, or 0/negative to disable the guard entirely.\n\n\n\n\n\nAlways export DATABASE_URL before running ingest/query commands.\ndune exec chessmate -- help lists all subcommands and options.\n\nKeep extending this guide as new issues surface - sharable fixes save the whole team time.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "TROUBLESHOOTING.html#quick-smoke-test",
+    "href": "TROUBLESHOOTING.html#quick-smoke-test",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Run this loop whenever you reset dependencies or suspect ingest/embedding is wedged. Use scripts/embedding_metrics.sh between steps to verify queue health and estimated finish times.\n\nCheck Postgres connectivity\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate -c \"SELECT 1\"\nIngest a known-good PGN (TWIC 1611 ships with the repo fixtures)\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\ndune exec chessmate -- ingest data/games/twic1611.pgn\nConfirm positions land with vector stubs\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT COUNT(*) FROM positions WHERE vector_id IS NOT NULL\"\nStart the embedding worker with exported env\nset -a\nsource .env\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\nQDRANT_URL=http://localhost:6333 dune exec embedding_worker -- --workers 3 --poll-sleep 1.0\nAdjust --workers/--poll-sleep based on throughput. (Value of 3 works well on a laptop.)\nWatch the queue drain\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT status, COUNT(*) FROM embedding_jobs GROUP BY status ORDER BY status\"\npending should drop while completed rises. If logs still show Malformed job row, pull the latest code - psql now emits real tab delimiters so rows parse correctly.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "TROUBLESHOOTING.html#pgn-ingestion",
+    "href": "TROUBLESHOOTING.html#pgn-ingestion",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Symptom psql ... invalid byte sequence for encoding \"UTF8\" during chessmate ingest.\nCause Many public PGNs (including TWIC) ship as Windows-1252.\nFix Re-encode before ingestion:\niconv -f WINDOWS-1252 -t UTF-8//TRANSLIT data/games/twic1611.pgn &gt; /tmp/twic1611.utf8.pgn\ncp /tmp/twic1611.utf8.pgn data/games/twic1611.pgn\nTransliteration keeps smart quotes/dashes readable. Re-run ingest afterwards.\n\n\n\n\n\nSymptom Errors such as PGN game #315 \"PGN contained no moves\".\nFix Run the preflight command to surface bad blocks:\ndune exec chessmate -- twic-precheck data/games/twic1611.pgn\nThe report names each offender (missing [Result], editorial fragments, etc.). Clean up the flagged entries, then re-run ingestion - completed games remain in Postgres.\n\n\n\n\n\nSymptom Log stops at Stored game 3 with 65 positions despite a large source file.\nFix Update to the multi-game ingest (already merged). Ensure you are running the latest binary; legacy builds processed a single game.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "TROUBLESHOOTING.html#environment-setup",
+    "href": "TROUBLESHOOTING.html#environment-setup",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Symptom opam: \"open\" failed on ... config.lock: Operation not permitted.\nFix Some shells sandbox writes. Run eval $(opam env --set-switch) (or opam env --set-switch | source) instead of opam switch set ..\n\n\n\n\n\nSymptom Program 'chessmate_api' not found! when starting the API via Dune.\nFix Use the public name dune exec -- chessmate-api --port 8080 or the full path dune exec services/api/chessmate_api.exe -- --port 8080.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "TROUBLESHOOTING.html#database-vector-stores",
+    "href": "TROUBLESHOOTING.html#database-vector-stores",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Symptom API replies only contain SQL fallbacks with warnings.\nFix Ensure QDRANT_URL points to a reachable instance. The API degrades gracefully but warns until vector search returns.\n\n\n\n\n\nSymptom Queue size grows, worker logs stay quiet.\nFix Confirm the worker is running with valid env:\ndune exec chessmate -- embedding-worker\nDouble-check OPENAI_API_KEY and endpoint settings. When the worker logs Malformed job row, update to the latest code (psql field separator fix). While triaging, run\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/embedding_metrics.sh --interval 120\nto ensure new completions are flowing; a flat throughput/min indicates the worker is stuck before reaching OpenAI.\n\n\n\n\n\nSymptom /query keeps warning about missing vectors even though the worker is active.\nFix Validate the pipeline end-to-end:\n\nQueue depth\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT status, COUNT(*) FROM embedding_jobs GROUP BY status\"\npending should fall while completed rises.\nPostgres vector IDs\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\npsql postgres://chess:chess@localhost:5433/chessmate \\\n-c \"SELECT COUNT(*) FROM positions WHERE vector_id IS NOT NULL\"\nNon-zero counts mean vectors are being attached.\nQdrant collection\ncurl \"$QDRANT_URL/collections/positions/points/count\"\nExpect a positive count; zero implies vectors were not pushed. If any checkpoint flatlines, inspect worker logs for rate limits or credential issues.\n\n\n\n\n\n\nSymptom API/CLI responses include warnings such as Agent evaluation failed or lack agent_score even though the key is set.\nFix\nConfirm AGENT_API_KEY and internet access; GPT-5 errors surface in the warning message.\nEnsure AGENT_REASONING_EFFORT is valid (minimal|low|medium|high) and that the API key has access to the selected model.\nInspect [agent-telemetry] JSON lines for latency, token usage, and cost estimates—persistent spikes or missing usage often explain slowdowns and quota overruns.\nIf a cache is enabled (AGENT_CACHE_CAPACITY), stale responses can persist until the cache evicts entries—drop the capacity or restart the API to clear it after schema/prompt changes.\nWhen the agent is temporarily disabled, results fall back to heuristic scoring—address the warning before relying on explanations.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "TROUBLESHOOTING.html#queue-management",
+    "href": "TROUBLESHOOTING.html#queue-management",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Monitor continuously. scripts/embedding_metrics.sh --interval 120 --log logs/embedding-metrics.log\nScale workers safely. Prefer a single process with multiple loops:\nset -a\nsource .env\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\nQDRANT_URL=http://localhost:6333 dune exec embedding_worker -- --workers 3 --poll-sleep 1.0\nIncrease --workers gradually (or stagger extra processes if you must) and watch scripts/embedding_metrics.sh for rising throughput or new failures (429s, connection drops).\nPrune stale jobs. When re-ingesting PGNs, run scripts/prune_pending_jobs.sh 2000 to mark pending jobs whose positions already hold a vector_id as completed before queueing more work.\nThrottle ingest automatically. The ingest CLI now enforces a guard based on CHESSMATE_MAX_PENDING_EMBEDDINGS (default 250000). Set it to a higher value to push more load, or 0/negative to disable the guard entirely.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "TROUBLESHOOTING.html#cli-tips",
+    "href": "TROUBLESHOOTING.html#cli-tips",
+    "title": "Troubleshooting",
+    "section": "",
+    "text": "Always export DATABASE_URL before running ingest/query commands.\ndune exec chessmate -- help lists all subcommands and options.\n\nKeep extending this guide as new issues surface - sharable fixes save the whole team time.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Troubleshooting"
+    ]
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "This documentation hub tracks the current state of the Chessmate platform:\n\nPurpose: capture architecture decisions, operational runbooks, onboarding guides, and LLM prompt catalogues in one searchable site.\nSource of truth: content mirrors the markdown stored under docs/ in the primary Chessmate repository and is synchronized into this Quarto project.\nPublishing: render locally with quarto preview or deploy to GitHub Pages following the Quarto publishing guide.\nContributions: propose edits through pull requests, pairing doc updates with the code changes they describe.\n\nQuestions or suggestions? Open an issue in the Chessmate repository so the team can discuss and track follow-up work."
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html",
+    "href": "CHESSMATE_FOR_DUMMIES.html",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "This document explains how Chessmate ingests chess games, stores information across PostgreSQL and Qdrant, and processes natural language queries to deliver relevant results.\n\n\nBefore diving in, let’s understand the concept: Traditional search matches exact keywords (like Google in the 1990s). Semantic search understands meaning. For example, if you search for “King’s Indian games,” the system knows you’re looking for games with ECO codes E60-E99, even though “E60-E99” never appears in your query.\nChessmate uses hybrid search: combining traditional filters (player ratings, opening codes) with vector embeddings (numerical representations of chess positions that capture their characteristics).\n\n\n\n\n\n\nWhen you run chessmate ingest game.pgn, the system:\n\nReads the PGN file - a chess game format with headers and moves:\n[Event \"World Championship\"]\n[White \"Kasparov, Garry\"]\n[Black \"Karpov, Anatoly\"]\n[WhiteElo \"2800\"]\n[BlackElo \"2750\"]\n[Result \"1-0\"]\n[ECO \"E97\"]\n\n1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 ...\nExtracts headers → player names, ratings, event, result, ECO code\nParses moves → converts algebraic notation (e4, Nf3) into structured data\n\n\n\n\nFor every half-move (ply), the system generates a FEN string - a text representation of the board position:\nrnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1\nThis FEN captures: - Piece placement - Who moves next - Castling rights - En passant squares - Move counters\nWhy? Each position becomes searchable independently. You can find “French Defense endgames” by searching positions at ply 40+, not just full games.\n\n\n\nThe system maintains a catalogue mapping opening names to ECO codes:\nKing's Indian Defense → E60-E99\nFrench Defense → C00-C19\nSicilian Defense → B20-B99\nIt also handles synonyms: “king’s indian”, “kings indian defense”, etc. all map to the same opening.\n\n\n\nThe database schema (scripts/migrations/0001_init.sql):\n\n\n\nplayers table:\n- id (auto-increment)\n- name (e.g., \"Kasparov, Garry\")\n- fide_id (optional)\n- rating_peak\ngames table (one row per game):\n- id\n- white_player_id → references players\n- black_player_id → references players\n- event (\"World Championship\")\n- site, round, played_on (date)\n- eco_code (\"E97\")\n- opening_name (\"King's Indian Defense, Orthodox Variation\")\n- opening_slug (\"kings_indian_defense\")  ← searchable slug\n- result (\"1-0\", \"0-1\", \"1/2-1/2\")\n- white_rating (2800)\n- black_rating (2750)\n- pgn (full PGN text)\nIndexes: On ratings, ECO codes, opening_slug for fast filtering\npositions table (dozens of rows per game):\n- id\n- game_id → references games\n- ply (half-move number: 1, 2, 3...)\n- fen (\"rnbqkbnr/pppppppp/...\")\n- san (\"e4\", \"Nf3\")\n- move_number (full move: 1, 2, 3...)\n- side_to_move (\"white\" or \"black\")\n- vector_id (reference to Qdrant, initially NULL)\nembedding_jobs table (queued work):\n- id\n- position_id → references positions\n- fen (the FEN string to embed)\n- status (\"pending\" → \"in_progress\" → \"completed\"/\"failed\")\n- attempts (retry counter)\n- last_error\n- timestamps (enqueued_at, started_at, completed_at)\n\nWhat happens during ingestion (lib/cli/ingest_command.ml:47-68): 1. Upsert players (avoid duplicates by name/FIDE ID) 2. Insert game record 3. For each move, insert position + enqueue embedding job (but aborts early if the pending queue already exceeds CHESSMATE_MAX_PENDING_EMBEDDINGS — default 250k). 4. Print: “Stored game 42 with 77 positions”\n\nGuard rail: the CLI checks CHESSMATE_MAX_PENDING_EMBEDDINGS (default 250k) before inserting new jobs. Raise or disable this value only when you are certain the embedding workers can keep up.\n\n\n\n\n\n\n\n\n\nThis is a background service that runs continuously (pass --workers N to run multiple loops in one process):\nlet rec work_loop repo embedding_client ~poll_sleep =\n  match claim_pending_jobs repo ~limit:16 with\n  | Ok jobs -&gt; List.iter jobs ~f:(process_job repo embedding_client)\n  | Error _ -&gt; sleep and retry\nEvery 2 seconds, it:\n\nAtomically claims pending jobs (limit 16) – rows transition from pending to in_progress using FOR UPDATE SKIP LOCKED, so multiple workers can run without duplicating work.\nCalls OpenAI API (lib/embedding/embedding_client.ml:75-93):\nPOST https://api.openai.com/v1/embeddings\n{\n  \"model\": \"text-embedding-3-small\",\n  \"input\": [\"rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1\"]\n}\nReturns a 1536-dimensional vector: [0.023, -0.451, 0.882, ...]\nStores in Qdrant (vector database) via lib/storage/repo_qdrant.ml:\nupsert_points [\n  { id: \"abc123\",  # hash of FEN\n    vector: [0.023, -0.451, ...],\n    payload: {\n      game_id: 42,\n      white_name: \"Kasparov\",\n      black_name: \"Karpov\",\n      white_elo: 2800,\n      black_elo: 2750,\n      opening_slug: \"kings_indian_defense\",\n      eco_code: \"E97\",\n      result: \"1-0\",\n      ply: 15,\n      phases: [\"middlegame\"],\n      themes: [\"king_attack\"],\n      keywords: [\"kasparov\", \"karpov\", \"kings\", \"indian\"]\n    }\n  }\n]\nUpdates PostgreSQL:\n\nSet positions.vector_id = \"abc123\" (links Postgres position to Qdrant vector)\nMark job as completed\n\n\n\nNeed to see progress in real time? Run scripts/embedding_metrics.sh --interval 120 to print queue depth, throughput, and a back-of-the-envelope ETA while the worker runs.\n\n\n\n\n\n\n\nData Type\nPostgreSQL\nQdrant\n\n\n\n\nPlayer info\n✅ Full records\n❌ Just names in payload\n\n\nGame metadata\n✅ Full records (event, date, result, ECO)\n❌\n\n\nPositions (FEN/SAN)\n✅ Full records\n❌\n\n\nVector embeddings\n❌\n✅ 1536-d vectors\n\n\nSearchable payload\n❌\n✅ Denormalized (for filtering)\n\n\nLinking\nvector_id → Qdrant\ngame_id → PostgreSQL\n\n\n\nWhy two databases? - PostgreSQL: Fast structured queries (“games where white rating &gt; 2700 AND eco = ‘E97’”) - Qdrant: Fast semantic similarity (“positions similar to this endgame”) - Hybrid: Combine both for powerful queries\n\n\n\n\n\n\n\nWhen you search: “Find King’s Indian games where White is 2500 and Black 100 points lower”\nThe system extracts:\n\nNormalize text (line 58-65):\n\"find kings indian games where white is 2500 and black 100 points lower\"\nExtract limit (line 85-103):\n\nLooks for patterns: “find 5 games”, “top 10”, “show three”\nResult: limit = 5 (default)\n\nExtract opening filters (line 119-138):\n\nChecks opening catalogue for substring matches\n“kings indian” → matches King's Indian Defense\nCreates filters:\n{ field = \"opening\", value = \"kings_indian_defense\" }\n{ field = \"eco_range\", value = \"E60-E99\" }\n\nExtract rating filters (line 161-248):\n\nParses “white is 2500” → white_min = Some 2500\nParses “100 points lower” → max_rating_delta = Some 100\nResult:\n{ white_min = Some 2500\n; black_min = None\n; max_rating_delta = Some 100 }\n\nExtract keywords (line 150-159):\n\nRemoves stopwords (“find”, “where”, “is”, “and”)\nResult: [\"kings\", \"indian\", \"white\", \"black\", \"points\", \"lower\"]\n\nDetect phases/themes (line 119-138):\n\n“endgame” → { field = \"phase\", value = \"endgame\" }\n“queenside majority” → { field = \"theme\", value = \"queenside_majority\" }\n\n\nOutput plan:\n{\n  cleaned_text: \"find kings indian games where white is 2500...\",\n  limit: 5,\n  filters: [\n    { field: \"opening\", value: \"kings_indian_defense\" },\n    { field: \"eco_range\", value: \"E60-E99\" }\n  ],\n  rating: { white_min: Some 2500, black_min: None, max_rating_delta: Some 100 },\n  keywords: [\"kings\", \"indian\", \"white\", \"black\", ...]\n}\n\n\n\n\nNow the system fetches data from both databases:\n\n\nSELECT g.id, w.name, b.name, g.result, g.event, g.opening_slug,\n       g.eco_code, g.white_rating, g.black_rating\nFROM games g\nLEFT JOIN players w ON g.white_player_id = w.id\nLEFT JOIN players b ON g.black_player_id = b.id\nWHERE g.opening_slug = 'kings_indian_defense'\n  AND g.eco_code &gt;= 'E60' AND g.eco_code &lt;= 'E99'\n  AND g.white_rating &gt;= 2500\n  AND g.white_rating IS NOT NULL\n  AND g.black_rating IS NOT NULL\n  AND ABS(g.white_rating - g.black_rating) &lt;= 100\nORDER BY g.played_on DESC\nLIMIT 50;  -- Overfetch for reranking\nReturns: List of game summaries (metadata only, no positions yet)\n\n\n\n\nBuild query vector (lib/query/hybrid_planner.ml:83-95):\n\nHash keywords into 8-dimensional vector (simplified version)\nReal system uses OpenAI embedding of the query text\nResult: [0.65, 0.23, -0.41, ...]\n\nBuild payload filters (lib/query/hybrid_planner.ml:69-76):\n{\n  \"must\": [\n    { \"key\": \"opening_slug\", \"match\": { \"value\": \"kings_indian_defense\" }},\n    { \"key\": \"white_elo\", \"range\": { \"gte\": 2500 }},\n    { \"key\": \"black_elo\", \"range\": { \"gte\": 0 }}\n  ]\n}\nSearch Qdrant:\nPOST /collections/positions/points/search\n{\n  \"vector\": { \"name\": \"default\", \"vector\": [0.65, 0.23, ...] },\n  \"filter\": { ... },\n  \"limit\": 100,\n  \"with_payload\": true\n}\nReturns: List of scored vectors:\n[\n  { \"id\": \"abc123\", \"score\": 0.92,\n    \"payload\": { \"game_id\": 42, \"white_name\": \"Kasparov\", ... }},\n  { \"id\": \"def456\", \"score\": 0.87,\n    \"payload\": { \"game_id\": 73, \"white_name\": \"Anand\", ... }},\n  ...\n]\n\n\n\n\n\n\nNow we have: - PostgreSQL results: 50 games matching metadata filters - Qdrant results: 100 positions (with game_id) matching vector similarity\nHow they’re combined:\n\nIndex vector hits by game_id (line 193):\nMap { 42 → score=0.92, 73 → score=0.87, ... }\nFor each PostgreSQL game (line 195-198):\n\nLook up vector hit (if any) by game_id\nCalculate hybrid score (line 130-134):\n\nlet score_result plan summary vector_hit =\n  (* Vector score: from Qdrant similarity OR fallback heuristic *)\n  let vector =\n    match vector_hit with\n    | Some hit → normalize(hit.score)  # e.g., 0.92\n    | None → fallback_heuristic()       # e.g., 0.6\n  in\n\n  (* Keyword score: overlap between query keywords and game metadata *)\n  let keyword =\n    matching_keywords / total_keywords  # e.g., 4/7 = 0.57\n  in\n\n  (* Weighted combination: 70% vector + 30% keyword *)\n  let combined = (0.7 * vector) + (0.3 * keyword) in\n  (combined, vector, keyword)\nExample:\n\nGame #42 (Kasparov vs Karpov):\n\nVector score: 0.92 (very similar position)\nKeyword score: 0.71 (5/7 keywords match)\nTotal: 0.857\n\nGame #73 (Anand vs Carlsen):\n\nVector score: 0.87\nKeyword score: 0.43\nTotal: 0.738\n\n\nSort by total score (line 199):\nList.sort ~compare:(fun a b -&gt; Float.compare b.total_score a.total_score)\nTake top N (line 201):\nList.take scored_results plan.limit  (* 5 games *)\n\n\n\n\n\nFinal output (JSON or text):\n{\n  \"question\": \"Find King's Indian games where White is 2500 and Black 100 points lower\",\n  \"plan\": {\n    \"filters\": [\n      { \"field\": \"opening\", \"value\": \"kings_indian_defense\" },\n      { \"field\": \"eco_range\", \"value\": \"E60-E99\" }\n    ],\n    \"rating\": { \"white_min\": 2500, \"max_rating_delta\": 100 },\n    \"limit\": 5\n  },\n  \"results\": [\n    {\n      \"game_id\": 42,\n      \"white\": \"Kasparov, Garry\",\n      \"black\": \"Karpov, Anatoly\",\n      \"white_rating\": 2800,\n      \"black_rating\": 2750,\n      \"result\": \"1-0\",\n      \"event\": \"World Championship\",\n      \"opening\": \"King's Indian Defense\",\n      \"eco_code\": \"E97\",\n      \"score\": 0.857,\n      \"vector_score\": 0.92,\n      \"keyword_score\": 0.71,\n      \"synopsis\": \"Kasparov's King's Indian features aggressive pawn storms...\"\n    }\n  ]\n}\n\n\n\n\n\n┌─────────────┐\n│  PGN File   │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────────────────────┐\n│  1. Parse PGN               │\n│  2. Generate FENs (per ply) │\n│  3. Extract opening/ratings │\n└──────┬──────────────────────┘\n       │\n       ├──────────────────────────┐\n       │                          │\n       ▼                          ▼\n┌──────────────┐      ┌────────────────────┐\n│ PostgreSQL   │      │ Embedding Jobs     │\n│ - players    │      │ (queued for worker)│\n│ - games      │      └─────────┬──────────┘\n│ - positions  │                │\n└──────┬───────┘                │\n       │                        ▼\n       │              ┌──────────────────┐\n       │              │ Embedding Worker │\n       │              │ 1. Poll jobs     │\n       │              │ 2. Call OpenAI   │\n       │              │ 3. Store vectors │\n       │              └────┬─────────┬───┘\n       │                   │         │\n       │                   │         ▼\n       │                   │   ┌──────────┐\n       │                   │   │  Qdrant  │\n       │                   │   │ (vectors)│\n       │                   │   └──────────┘\n       │                   │\n       │                   ▼\n       │            (update vector_id)\n       │                   │\n       └───────────────────┘\n\n┌─────────────────────────────┐\n│  SEARCH QUERY               │\n│  \"Find King's Indian games\" │\n└──────────┬──────────────────┘\n           │\n           ▼\n┌───────────────────────────┐\n│  Query Intent Analysis    │\n│  - Extract filters        │\n│  - Parse ratings          │\n│  - Extract keywords       │\n└──────┬────────────────────┘\n       │\n       ├──────────────┬──────────────┐\n       │              │              │\n       ▼              ▼              ▼\n┌──────────┐   ┌──────────┐   ┌──────────┐\n│PostgreSQL│   │  Qdrant  │   │ Combine  │\n│ Metadata │   │  Vector  │──▶│  Results │\n│  Query   │──▶│  Search  │   │  Rerank  │\n└──────────┘   └──────────┘   └────┬─────┘\n                                   │\n                                   ▼\n                            ┌─────────────┐\n                            │ Top 5 Games │\n                            └─────────────┘\n\n\n\n\n\nPostgreSQL stores structured data (games, players, positions) - fast for exact filtering\nQdrant stores vector embeddings - fast for semantic similarity\nHybrid search combines both: filter by metadata, rank by similarity\nReranking uses weighted scoring (70% vector, 30% keyword) to merge results\nEvery position (not just games) is searchable - find specific board states\nNo LLMs in query processing - deterministic intent parsing with opening catalogue\n\nThis architecture enables queries like “French Defense endgames that end in a draw with queenside pawn majority” by: - Filtering: opening=french, result=draw, phase=endgame (PostgreSQL) - Similarity: positions resembling “queenside pawn majority” (Qdrant vectors) - Combining: games matching both criteria, ranked by total score\n\n\n\n\nKey modules implementing each stage:\n\n\n\n\n\n\n\n\nStage\nModule\nKey Functions\n\n\n\n\nPGN Parsing\nlib/chess/pgn_parser.ml\nparse, fold_games\n\n\nFEN Generation\nlib/chess/pgn_to_fen.ml\nfens_of_moves, apply_san\n\n\nOpening Catalogue\nlib/chess/openings.ml\nfilters_for_text, slug_of_eco\n\n\nPostgres Storage\nlib/storage/repo_postgres.ml\ninsert_game, search_games\n\n\nIngestion\nlib/cli/ingest_command.ml\nrun\n\n\nEmbedding Client\nlib/embedding/embedding_client.ml\nembed_fens\n\n\nEmbedding Worker\nservices/embedding_worker/embedding_worker.ml\nwork_loop, process_job\n\n\nQdrant Storage\nlib/storage/repo_qdrant.ml\nupsert_points, vector_search\n\n\nIntent Analysis\nlib/query/query_intent.ml\nanalyse, parse_rating\n\n\nHybrid Planner\nlib/query/hybrid_planner.ml\nbuild_payload_filters, query_vector\n\n\nHybrid Executor\nlib/query/hybrid_executor.ml\nexecute, score_result\n\n\nResult Formatting\nlib/query/result_formatter.ml\nFormat results for CLI/API\n\n\n\n\n\n\n\nCurrent limitations and planned improvements:\n\nLive Qdrant Integration: Wire hybrid executor to real Qdrant queries (currently uses curated prototype data)\nReciprocal Rank Fusion (RRF): More sophisticated result merging algorithm\nQuery Embedding: Embed user queries (not just keywords) for better semantic matching\nPosition Features: Extract tactical themes (pins, forks, sacrifices) during ingestion\nCaching: Redis layer for frequently asked questions\nObservability: Structured logging + Prometheus metrics for worker/API performance",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#what-is-semantic-search",
+    "href": "CHESSMATE_FOR_DUMMIES.html#what-is-semantic-search",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "Before diving in, let’s understand the concept: Traditional search matches exact keywords (like Google in the 1990s). Semantic search understands meaning. For example, if you search for “King’s Indian games,” the system knows you’re looking for games with ECO codes E60-E99, even though “E60-E99” never appears in your query.\nChessmate uses hybrid search: combining traditional filters (player ratings, opening codes) with vector embeddings (numerical representations of chess positions that capture their characteristics).",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#part-1-ingestion---getting-chess-games-into-the-system",
+    "href": "CHESSMATE_FOR_DUMMIES.html#part-1-ingestion---getting-chess-games-into-the-system",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "When you run chessmate ingest game.pgn, the system:\n\nReads the PGN file - a chess game format with headers and moves:\n[Event \"World Championship\"]\n[White \"Kasparov, Garry\"]\n[Black \"Karpov, Anatoly\"]\n[WhiteElo \"2800\"]\n[BlackElo \"2750\"]\n[Result \"1-0\"]\n[ECO \"E97\"]\n\n1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 ...\nExtracts headers → player names, ratings, event, result, ECO code\nParses moves → converts algebraic notation (e4, Nf3) into structured data\n\n\n\n\nFor every half-move (ply), the system generates a FEN string - a text representation of the board position:\nrnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1\nThis FEN captures: - Piece placement - Who moves next - Castling rights - En passant squares - Move counters\nWhy? Each position becomes searchable independently. You can find “French Defense endgames” by searching positions at ply 40+, not just full games.\n\n\n\nThe system maintains a catalogue mapping opening names to ECO codes:\nKing's Indian Defense → E60-E99\nFrench Defense → C00-C19\nSicilian Defense → B20-B99\nIt also handles synonyms: “king’s indian”, “kings indian defense”, etc. all map to the same opening.\n\n\n\nThe database schema (scripts/migrations/0001_init.sql):\n\n\n\nplayers table:\n- id (auto-increment)\n- name (e.g., \"Kasparov, Garry\")\n- fide_id (optional)\n- rating_peak\ngames table (one row per game):\n- id\n- white_player_id → references players\n- black_player_id → references players\n- event (\"World Championship\")\n- site, round, played_on (date)\n- eco_code (\"E97\")\n- opening_name (\"King's Indian Defense, Orthodox Variation\")\n- opening_slug (\"kings_indian_defense\")  ← searchable slug\n- result (\"1-0\", \"0-1\", \"1/2-1/2\")\n- white_rating (2800)\n- black_rating (2750)\n- pgn (full PGN text)\nIndexes: On ratings, ECO codes, opening_slug for fast filtering\npositions table (dozens of rows per game):\n- id\n- game_id → references games\n- ply (half-move number: 1, 2, 3...)\n- fen (\"rnbqkbnr/pppppppp/...\")\n- san (\"e4\", \"Nf3\")\n- move_number (full move: 1, 2, 3...)\n- side_to_move (\"white\" or \"black\")\n- vector_id (reference to Qdrant, initially NULL)\nembedding_jobs table (queued work):\n- id\n- position_id → references positions\n- fen (the FEN string to embed)\n- status (\"pending\" → \"in_progress\" → \"completed\"/\"failed\")\n- attempts (retry counter)\n- last_error\n- timestamps (enqueued_at, started_at, completed_at)\n\nWhat happens during ingestion (lib/cli/ingest_command.ml:47-68): 1. Upsert players (avoid duplicates by name/FIDE ID) 2. Insert game record 3. For each move, insert position + enqueue embedding job (but aborts early if the pending queue already exceeds CHESSMATE_MAX_PENDING_EMBEDDINGS — default 250k). 4. Print: “Stored game 42 with 77 positions”\n\nGuard rail: the CLI checks CHESSMATE_MAX_PENDING_EMBEDDINGS (default 250k) before inserting new jobs. Raise or disable this value only when you are certain the embedding workers can keep up.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#part-2-embedding-pipeline---creating-vector-representations",
+    "href": "CHESSMATE_FOR_DUMMIES.html#part-2-embedding-pipeline---creating-vector-representations",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "This is a background service that runs continuously (pass --workers N to run multiple loops in one process):\nlet rec work_loop repo embedding_client ~poll_sleep =\n  match claim_pending_jobs repo ~limit:16 with\n  | Ok jobs -&gt; List.iter jobs ~f:(process_job repo embedding_client)\n  | Error _ -&gt; sleep and retry\nEvery 2 seconds, it:\n\nAtomically claims pending jobs (limit 16) – rows transition from pending to in_progress using FOR UPDATE SKIP LOCKED, so multiple workers can run without duplicating work.\nCalls OpenAI API (lib/embedding/embedding_client.ml:75-93):\nPOST https://api.openai.com/v1/embeddings\n{\n  \"model\": \"text-embedding-3-small\",\n  \"input\": [\"rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1\"]\n}\nReturns a 1536-dimensional vector: [0.023, -0.451, 0.882, ...]\nStores in Qdrant (vector database) via lib/storage/repo_qdrant.ml:\nupsert_points [\n  { id: \"abc123\",  # hash of FEN\n    vector: [0.023, -0.451, ...],\n    payload: {\n      game_id: 42,\n      white_name: \"Kasparov\",\n      black_name: \"Karpov\",\n      white_elo: 2800,\n      black_elo: 2750,\n      opening_slug: \"kings_indian_defense\",\n      eco_code: \"E97\",\n      result: \"1-0\",\n      ply: 15,\n      phases: [\"middlegame\"],\n      themes: [\"king_attack\"],\n      keywords: [\"kasparov\", \"karpov\", \"kings\", \"indian\"]\n    }\n  }\n]\nUpdates PostgreSQL:\n\nSet positions.vector_id = \"abc123\" (links Postgres position to Qdrant vector)\nMark job as completed\n\n\n\nNeed to see progress in real time? Run scripts/embedding_metrics.sh --interval 120 to print queue depth, throughput, and a back-of-the-envelope ETA while the worker runs.\n\n\n\n\n\n\n\nData Type\nPostgreSQL\nQdrant\n\n\n\n\nPlayer info\n✅ Full records\n❌ Just names in payload\n\n\nGame metadata\n✅ Full records (event, date, result, ECO)\n❌\n\n\nPositions (FEN/SAN)\n✅ Full records\n❌\n\n\nVector embeddings\n❌\n✅ 1536-d vectors\n\n\nSearchable payload\n❌\n✅ Denormalized (for filtering)\n\n\nLinking\nvector_id → Qdrant\ngame_id → PostgreSQL\n\n\n\nWhy two databases? - PostgreSQL: Fast structured queries (“games where white rating &gt; 2700 AND eco = ‘E97’”) - Qdrant: Fast semantic similarity (“positions similar to this endgame”) - Hybrid: Combine both for powerful queries",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#part-3-natural-language-search---from-query-to-results",
+    "href": "CHESSMATE_FOR_DUMMIES.html#part-3-natural-language-search---from-query-to-results",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "When you search: “Find King’s Indian games where White is 2500 and Black 100 points lower”\nThe system extracts:\n\nNormalize text (line 58-65):\n\"find kings indian games where white is 2500 and black 100 points lower\"\nExtract limit (line 85-103):\n\nLooks for patterns: “find 5 games”, “top 10”, “show three”\nResult: limit = 5 (default)\n\nExtract opening filters (line 119-138):\n\nChecks opening catalogue for substring matches\n“kings indian” → matches King's Indian Defense\nCreates filters:\n{ field = \"opening\", value = \"kings_indian_defense\" }\n{ field = \"eco_range\", value = \"E60-E99\" }\n\nExtract rating filters (line 161-248):\n\nParses “white is 2500” → white_min = Some 2500\nParses “100 points lower” → max_rating_delta = Some 100\nResult:\n{ white_min = Some 2500\n; black_min = None\n; max_rating_delta = Some 100 }\n\nExtract keywords (line 150-159):\n\nRemoves stopwords (“find”, “where”, “is”, “and”)\nResult: [\"kings\", \"indian\", \"white\", \"black\", \"points\", \"lower\"]\n\nDetect phases/themes (line 119-138):\n\n“endgame” → { field = \"phase\", value = \"endgame\" }\n“queenside majority” → { field = \"theme\", value = \"queenside_majority\" }\n\n\nOutput plan:\n{\n  cleaned_text: \"find kings indian games where white is 2500...\",\n  limit: 5,\n  filters: [\n    { field: \"opening\", value: \"kings_indian_defense\" },\n    { field: \"eco_range\", value: \"E60-E99\" }\n  ],\n  rating: { white_min: Some 2500, black_min: None, max_rating_delta: Some 100 },\n  keywords: [\"kings\", \"indian\", \"white\", \"black\", ...]\n}\n\n\n\n\nNow the system fetches data from both databases:\n\n\nSELECT g.id, w.name, b.name, g.result, g.event, g.opening_slug,\n       g.eco_code, g.white_rating, g.black_rating\nFROM games g\nLEFT JOIN players w ON g.white_player_id = w.id\nLEFT JOIN players b ON g.black_player_id = b.id\nWHERE g.opening_slug = 'kings_indian_defense'\n  AND g.eco_code &gt;= 'E60' AND g.eco_code &lt;= 'E99'\n  AND g.white_rating &gt;= 2500\n  AND g.white_rating IS NOT NULL\n  AND g.black_rating IS NOT NULL\n  AND ABS(g.white_rating - g.black_rating) &lt;= 100\nORDER BY g.played_on DESC\nLIMIT 50;  -- Overfetch for reranking\nReturns: List of game summaries (metadata only, no positions yet)\n\n\n\n\nBuild query vector (lib/query/hybrid_planner.ml:83-95):\n\nHash keywords into 8-dimensional vector (simplified version)\nReal system uses OpenAI embedding of the query text\nResult: [0.65, 0.23, -0.41, ...]\n\nBuild payload filters (lib/query/hybrid_planner.ml:69-76):\n{\n  \"must\": [\n    { \"key\": \"opening_slug\", \"match\": { \"value\": \"kings_indian_defense\" }},\n    { \"key\": \"white_elo\", \"range\": { \"gte\": 2500 }},\n    { \"key\": \"black_elo\", \"range\": { \"gte\": 0 }}\n  ]\n}\nSearch Qdrant:\nPOST /collections/positions/points/search\n{\n  \"vector\": { \"name\": \"default\", \"vector\": [0.65, 0.23, ...] },\n  \"filter\": { ... },\n  \"limit\": 100,\n  \"with_payload\": true\n}\nReturns: List of scored vectors:\n[\n  { \"id\": \"abc123\", \"score\": 0.92,\n    \"payload\": { \"game_id\": 42, \"white_name\": \"Kasparov\", ... }},\n  { \"id\": \"def456\", \"score\": 0.87,\n    \"payload\": { \"game_id\": 73, \"white_name\": \"Anand\", ... }},\n  ...\n]\n\n\n\n\n\n\nNow we have: - PostgreSQL results: 50 games matching metadata filters - Qdrant results: 100 positions (with game_id) matching vector similarity\nHow they’re combined:\n\nIndex vector hits by game_id (line 193):\nMap { 42 → score=0.92, 73 → score=0.87, ... }\nFor each PostgreSQL game (line 195-198):\n\nLook up vector hit (if any) by game_id\nCalculate hybrid score (line 130-134):\n\nlet score_result plan summary vector_hit =\n  (* Vector score: from Qdrant similarity OR fallback heuristic *)\n  let vector =\n    match vector_hit with\n    | Some hit → normalize(hit.score)  # e.g., 0.92\n    | None → fallback_heuristic()       # e.g., 0.6\n  in\n\n  (* Keyword score: overlap between query keywords and game metadata *)\n  let keyword =\n    matching_keywords / total_keywords  # e.g., 4/7 = 0.57\n  in\n\n  (* Weighted combination: 70% vector + 30% keyword *)\n  let combined = (0.7 * vector) + (0.3 * keyword) in\n  (combined, vector, keyword)\nExample:\n\nGame #42 (Kasparov vs Karpov):\n\nVector score: 0.92 (very similar position)\nKeyword score: 0.71 (5/7 keywords match)\nTotal: 0.857\n\nGame #73 (Anand vs Carlsen):\n\nVector score: 0.87\nKeyword score: 0.43\nTotal: 0.738\n\n\nSort by total score (line 199):\nList.sort ~compare:(fun a b -&gt; Float.compare b.total_score a.total_score)\nTake top N (line 201):\nList.take scored_results plan.limit  (* 5 games *)\n\n\n\n\n\nFinal output (JSON or text):\n{\n  \"question\": \"Find King's Indian games where White is 2500 and Black 100 points lower\",\n  \"plan\": {\n    \"filters\": [\n      { \"field\": \"opening\", \"value\": \"kings_indian_defense\" },\n      { \"field\": \"eco_range\", \"value\": \"E60-E99\" }\n    ],\n    \"rating\": { \"white_min\": 2500, \"max_rating_delta\": 100 },\n    \"limit\": 5\n  },\n  \"results\": [\n    {\n      \"game_id\": 42,\n      \"white\": \"Kasparov, Garry\",\n      \"black\": \"Karpov, Anatoly\",\n      \"white_rating\": 2800,\n      \"black_rating\": 2750,\n      \"result\": \"1-0\",\n      \"event\": \"World Championship\",\n      \"opening\": \"King's Indian Defense\",\n      \"eco_code\": \"E97\",\n      \"score\": 0.857,\n      \"vector_score\": 0.92,\n      \"keyword_score\": 0.71,\n      \"synopsis\": \"Kasparov's King's Indian features aggressive pawn storms...\"\n    }\n  ]\n}",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#data-flow-diagram",
+    "href": "CHESSMATE_FOR_DUMMIES.html#data-flow-diagram",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "┌─────────────┐\n│  PGN File   │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────────────────────┐\n│  1. Parse PGN               │\n│  2. Generate FENs (per ply) │\n│  3. Extract opening/ratings │\n└──────┬──────────────────────┘\n       │\n       ├──────────────────────────┐\n       │                          │\n       ▼                          ▼\n┌──────────────┐      ┌────────────────────┐\n│ PostgreSQL   │      │ Embedding Jobs     │\n│ - players    │      │ (queued for worker)│\n│ - games      │      └─────────┬──────────┘\n│ - positions  │                │\n└──────┬───────┘                │\n       │                        ▼\n       │              ┌──────────────────┐\n       │              │ Embedding Worker │\n       │              │ 1. Poll jobs     │\n       │              │ 2. Call OpenAI   │\n       │              │ 3. Store vectors │\n       │              └────┬─────────┬───┘\n       │                   │         │\n       │                   │         ▼\n       │                   │   ┌──────────┐\n       │                   │   │  Qdrant  │\n       │                   │   │ (vectors)│\n       │                   │   └──────────┘\n       │                   │\n       │                   ▼\n       │            (update vector_id)\n       │                   │\n       └───────────────────┘\n\n┌─────────────────────────────┐\n│  SEARCH QUERY               │\n│  \"Find King's Indian games\" │\n└──────────┬──────────────────┘\n           │\n           ▼\n┌───────────────────────────┐\n│  Query Intent Analysis    │\n│  - Extract filters        │\n│  - Parse ratings          │\n│  - Extract keywords       │\n└──────┬────────────────────┘\n       │\n       ├──────────────┬──────────────┐\n       │              │              │\n       ▼              ▼              ▼\n┌──────────┐   ┌──────────┐   ┌──────────┐\n│PostgreSQL│   │  Qdrant  │   │ Combine  │\n│ Metadata │   │  Vector  │──▶│  Results │\n│  Query   │──▶│  Search  │   │  Rerank  │\n└──────────┘   └──────────┘   └────┬─────┘\n                                   │\n                                   ▼\n                            ┌─────────────┐\n                            │ Top 5 Games │\n                            └─────────────┘",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#summary-key-takeaways",
+    "href": "CHESSMATE_FOR_DUMMIES.html#summary-key-takeaways",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "PostgreSQL stores structured data (games, players, positions) - fast for exact filtering\nQdrant stores vector embeddings - fast for semantic similarity\nHybrid search combines both: filter by metadata, rank by similarity\nReranking uses weighted scoring (70% vector, 30% keyword) to merge results\nEvery position (not just games) is searchable - find specific board states\nNo LLMs in query processing - deterministic intent parsing with opening catalogue\n\nThis architecture enables queries like “French Defense endgames that end in a draw with queenside pawn majority” by: - Filtering: opening=french, result=draw, phase=endgame (PostgreSQL) - Similarity: positions resembling “queenside pawn majority” (Qdrant vectors) - Combining: games matching both criteria, ranked by total score",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#code-references",
+    "href": "CHESSMATE_FOR_DUMMIES.html#code-references",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "Key modules implementing each stage:\n\n\n\n\n\n\n\n\nStage\nModule\nKey Functions\n\n\n\n\nPGN Parsing\nlib/chess/pgn_parser.ml\nparse, fold_games\n\n\nFEN Generation\nlib/chess/pgn_to_fen.ml\nfens_of_moves, apply_san\n\n\nOpening Catalogue\nlib/chess/openings.ml\nfilters_for_text, slug_of_eco\n\n\nPostgres Storage\nlib/storage/repo_postgres.ml\ninsert_game, search_games\n\n\nIngestion\nlib/cli/ingest_command.ml\nrun\n\n\nEmbedding Client\nlib/embedding/embedding_client.ml\nembed_fens\n\n\nEmbedding Worker\nservices/embedding_worker/embedding_worker.ml\nwork_loop, process_job\n\n\nQdrant Storage\nlib/storage/repo_qdrant.ml\nupsert_points, vector_search\n\n\nIntent Analysis\nlib/query/query_intent.ml\nanalyse, parse_rating\n\n\nHybrid Planner\nlib/query/hybrid_planner.ml\nbuild_payload_filters, query_vector\n\n\nHybrid Executor\nlib/query/hybrid_executor.ml\nexecute, score_result\n\n\nResult Formatting\nlib/query/result_formatter.ml\nFormat results for CLI/API",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "CHESSMATE_FOR_DUMMIES.html#future-enhancements",
+    "href": "CHESSMATE_FOR_DUMMIES.html#future-enhancements",
+    "title": "Complete System Overview: From Chess Game to Natural Language Search",
+    "section": "",
+    "text": "Current limitations and planned improvements:\n\nLive Qdrant Integration: Wire hybrid executor to real Qdrant queries (currently uses curated prototype data)\nReciprocal Rank Fusion (RRF): More sophisticated result merging algorithm\nQuery Embedding: Embed user queries (not just keywords) for better semantic matching\nPosition Features: Extract tactical themes (pins, forks, sacrifices) during ingestion\nCaching: Redis layer for frequently asked questions\nObservability: Structured logging + Prometheus metrics for worker/API performance",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Complete System Overview: From Chess Game to Natural Language Search"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html",
+    "href": "OPERATIONS.html",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "postgres: canonical PGN/metadata store, embedding job queue. Volume: data/postgres.\nqdrant: vector store for FEN embeddings, exposed on 6333/6334. Volume: data/qdrant.\nchessmate-api: Opium HTTP service (prototype) for /query.\nembedding-worker: OCaml worker polling embedding_jobs, calling OpenAI, updating Qdrant/Postgres.\n(optional) redis/others: future queue/cache components once required.\n\n\n\n\nCopy .env.sample to .env, adjust the values, and then export or source them before running commands.\n# set connection strings for local dev\nexport DATABASE_URL=postgres://chess:chess@localhost:5433/chessmate\nexport CHESSMATE_API_URL=http://localhost:8080\n\n# start core services (first run pulls images)\ndocker compose up -d postgres qdrant\n\n# apply migrations (idempotent)\n./scripts/migrate.sh\n\n# seed sample PGNs (optional) - respects CHESSMATE_MAX_PENDING_EMBEDDINGS\nchessmate ingest test/fixtures/extended_sample_game.pgn\n\n\n\nQuery API (prototype): dune exec chessmate_api -- --port 8080.\nEmbedding worker: OPENAI_API_KEY=... chessmate embedding-worker --workers N (run multiple loops inside one process; increase N gradually when clearing backlogs).\nCLI queries: chessmate query \"find king's indian games\" (ensure API is running).\nQueue metrics: scripts/embedding_metrics.sh --interval 120 --log logs/embedding-metrics.log keeps per-status counts, throughput, and ETA.\nGPT-5 agent (optional): set AGENT_API_KEY (and optionally AGENT_MODEL, AGENT_REASONING_EFFORT, AGENT_VERBOSITY, AGENT_CACHE_CAPACITY) before calling chessmate query or starting the API to enable ranking/explanations.\n\n\n\n\n\n\nHealth checks:\n\nAPI: GET /health.\nPostgres: docker compose exec postgres pg_isready -U chess.\nQdrant: curl http://localhost:6333/healthz.\n\nLogs: docker compose logs -f &lt;service&gt;; ship to Loki/ELK once observability stack is wired.\nScaling: increase --workers (or run additional processes) to clear job backlogs; bump concurrency one loop at a time and watch scripts/embedding_metrics.sh for throughput and error spikes. Postgres/Qdrant remain single-instance until HA work lands.\nQueue hygiene:\n\nIngests now enforce CHESSMATE_MAX_PENDING_EMBEDDINGS (default 250k). Set a higher limit or 0/negative to bypass if you intentionally backfill.\nUse scripts/prune_pending_jobs.sh &lt;batch&gt; to mark pending jobs with existing vectors as completed before re-ingesting.\n\n\n\n\n\nContinuous telemetry:\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/embedding_metrics.sh --interval 120 --log logs/embedding-metrics.log\nCaptures per-status counts, 5/15/60 minute throughput, and ETA. Store the log in source control ignored logs/ for easy diffing.\nInterpreting output:\n\npending should trend down when workers keep pace; a plateau signals rate limits or stalled workers.\nthroughput/min columns help decide when to scale workers or revisit OpenAI quotas.\npending ETA is computed from the 15-minute rate—treat it as a sanity check, not an SLA.\n\nGuard tuning:\n\nCHESSMATE_MAX_PENDING_EMBEDDINGS=400000 is a good ceiling for local runs; production should tailor it to OpenAI/Qdrant quotas.\nExport the variable per shell or bake it into systemd units for ingest jobs.\n\nScaling strategy:\n\nIncrease --workers gradually; if the metrics script shows rising failures (e.g., repeated 429s) roll back concurrency or raise backoff.\nWhen the queue dips below 10k pending, consider dropping back to a single worker to conserve tokens.\n\n\n\n\n\n\nPrep – export DATABASE_URL, set/confirm CHESSMATE_MAX_PENDING_EMBEDDINGS, and start the metrics loop (--interval 120 works well for 5–10 worker threads).\nDry-run diagnostics – run chessmate twic-precheck &lt;pgn&gt; or spot-check the file for encoding with the troubleshooting commands below.\nIngest – execute chessmate ingest &lt;file.pgn&gt;; if the guard trips, either pause to let the queue drain or raise the threshold intentionally.\nEmbed – keep the worker running (dune exec embedding_worker -- --workers N --poll-sleep 1.0) and verify completions rise faster than pending.\nPrune duplicates – after re-ingest cycles, call scripts/prune_pending_jobs.sh &lt;batch&gt; until it reports 0 to clear leftover vectorized positions.\nPost-run checks – capture the final metrics snapshot, confirm pending is near zero, and archive logs for observability.\n\n\n\n\n\nAPI and CLI calls automatically include agent insights when AGENT_API_KEY is present.\nMonitor agent warnings returned by the API (e.g., “Agent evaluation failed…” or token usage summaries).\nTune AGENT_REASONING_EFFORT + AGENT_VERBOSITY jointly (high/high for deep audits, medium/medium for balanced responses).\nEnable caching by setting AGENT_CACHE_CAPACITY=&lt;n&gt; (e.g. 1000) to reuse evaluations across identical queries; clear or lower the value if memory pressure appears.\nTelemetry: each agent call logs a [agent-telemetry] JSON line with candidate counts, latency, token usage, and optional cost estimates. Configure per-1K token costs via AGENT_COST_INPUT_PER_1K, AGENT_COST_OUTPUT_PER_1K, and AGENT_COST_REASONING_PER_1K to surface USD totals.\nIf GPT-5 is unreachable, results fall back to heuristic scoring and a warning appears in the response; investigate network/API limits before re-enabling.\n\n\n\n\n\n\nPostgres: schedule pg_dump + WAL archiving; store artifacts in secure object storage.\nQdrant: use built-in snapshots (qdrant snapshot create --path /qdrant/storage/snapshots/&lt;ts&gt;); sync to external storage.\nRestore workflow: stop services → restore Postgres dump → restore Qdrant snapshot → rerun migrations (if needed) → restart worker/API → re-ingest if deltas are missing.\n\n\n\n\n\nTerminate TLS at reverse proxy (nginx/Traefik) in front of API & Qdrant.\nProtect Qdrant with auth (token/mTLS); rotate credentials regularly.\nRestrict worker egress to OpenAI hosts via firewall rules.\nSeparate Postgres roles (application vs. admin) and use least privilege.\nRotate OPENAI_API_KEY, DB passwords, and tokens per incident response policy.\n\n\n\n\n\nTrack: API latency/p95, query success rate, embedding throughput, job queue depth (via scripts/embedding_metrics.sh or SQL), Postgres replication lag, disk usage on data/ volumes.\nAlerts: latency &gt; 2s sustained, backlog &gt; 500 jobs, embedding failure rate &gt; 5%/h, disk utilization &gt; 80%, Qdrant/DB down. Hook alerts into the guard limits to warn before ingest halts.\nDashboard: combine Postgres exporter, Qdrant metrics, OCaml counters (future Prometheus integration), and log the metrics script output for lightweight visibility.\n\n\n\n\n\nAcknowledge alert/page.\nCheck dashboards/logs for correlated spikes.\nIf Qdrant down: return 503s quickly, pause worker.\nIf Postgres degraded: pause ingestion, run read-only mode.\nCapture root cause + mitigation in docs/INCIDENTS/&lt;date&gt;.md; assign follow-up actions.\n\n\n\n\n\nSchema changes: schedule during low traffic; return maintenance responses (503) for API.\nRe-embedding jobs: throttle worker to stay within OpenAI quota; monitor queue depth/durations and prune completed vectors from the pending queue before re-running (scripts/prune_pending_jobs.sh).\nUpgrades: bump Docker images, apply migrations, run smoke tests (chessmate query \"test\"), restart services.\nStack reset: docker compose down; remove data/postgres, data/qdrant; bring services back up, re-run migrations, re-ingest.\n\n\n\n\n\nGitHub Actions (.github/workflows/ci.yml) runs dune build + dune test on pushes/PRs.\nUse pull-request checks as gatekeepers before deploy.\nFor release candidates: document validation commands (dune build, dune runtest, sample ingest/query run) in PR description.\nFuture hardening: add integration suite hitting /query against live Postgres/Qdrant in CI/CD, automate container builds/pushes.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#service-topology",
+    "href": "OPERATIONS.html#service-topology",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "postgres: canonical PGN/metadata store, embedding job queue. Volume: data/postgres.\nqdrant: vector store for FEN embeddings, exposed on 6333/6334. Volume: data/qdrant.\nchessmate-api: Opium HTTP service (prototype) for /query.\nembedding-worker: OCaml worker polling embedding_jobs, calling OpenAI, updating Qdrant/Postgres.\n(optional) redis/others: future queue/cache components once required.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#bootstrapping-environment",
+    "href": "OPERATIONS.html#bootstrapping-environment",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Copy .env.sample to .env, adjust the values, and then export or source them before running commands.\n# set connection strings for local dev\nexport DATABASE_URL=postgres://chess:chess@localhost:5433/chessmate\nexport CHESSMATE_API_URL=http://localhost:8080\n\n# start core services (first run pulls images)\ndocker compose up -d postgres qdrant\n\n# apply migrations (idempotent)\n./scripts/migrate.sh\n\n# seed sample PGNs (optional) - respects CHESSMATE_MAX_PENDING_EMBEDDINGS\nchessmate ingest test/fixtures/extended_sample_game.pgn\n\n\n\nQuery API (prototype): dune exec chessmate_api -- --port 8080.\nEmbedding worker: OPENAI_API_KEY=... chessmate embedding-worker --workers N (run multiple loops inside one process; increase N gradually when clearing backlogs).\nCLI queries: chessmate query \"find king's indian games\" (ensure API is running).\nQueue metrics: scripts/embedding_metrics.sh --interval 120 --log logs/embedding-metrics.log keeps per-status counts, throughput, and ETA.\nGPT-5 agent (optional): set AGENT_API_KEY (and optionally AGENT_MODEL, AGENT_REASONING_EFFORT, AGENT_VERBOSITY, AGENT_CACHE_CAPACITY) before calling chessmate query or starting the API to enable ranking/explanations.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#runtime-management",
+    "href": "OPERATIONS.html#runtime-management",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Health checks:\n\nAPI: GET /health.\nPostgres: docker compose exec postgres pg_isready -U chess.\nQdrant: curl http://localhost:6333/healthz.\n\nLogs: docker compose logs -f &lt;service&gt;; ship to Loki/ELK once observability stack is wired.\nScaling: increase --workers (or run additional processes) to clear job backlogs; bump concurrency one loop at a time and watch scripts/embedding_metrics.sh for throughput and error spikes. Postgres/Qdrant remain single-instance until HA work lands.\nQueue hygiene:\n\nIngests now enforce CHESSMATE_MAX_PENDING_EMBEDDINGS (default 250k). Set a higher limit or 0/negative to bypass if you intentionally backfill.\nUse scripts/prune_pending_jobs.sh &lt;batch&gt; to mark pending jobs with existing vectors as completed before re-ingesting.\n\n\n\n\n\nContinuous telemetry:\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/embedding_metrics.sh --interval 120 --log logs/embedding-metrics.log\nCaptures per-status counts, 5/15/60 minute throughput, and ETA. Store the log in source control ignored logs/ for easy diffing.\nInterpreting output:\n\npending should trend down when workers keep pace; a plateau signals rate limits or stalled workers.\nthroughput/min columns help decide when to scale workers or revisit OpenAI quotas.\npending ETA is computed from the 15-minute rate—treat it as a sanity check, not an SLA.\n\nGuard tuning:\n\nCHESSMATE_MAX_PENDING_EMBEDDINGS=400000 is a good ceiling for local runs; production should tailor it to OpenAI/Qdrant quotas.\nExport the variable per shell or bake it into systemd units for ingest jobs.\n\nScaling strategy:\n\nIncrease --workers gradually; if the metrics script shows rising failures (e.g., repeated 429s) roll back concurrency or raise backoff.\nWhen the queue dips below 10k pending, consider dropping back to a single worker to conserve tokens.\n\n\n\n\n\n\nPrep – export DATABASE_URL, set/confirm CHESSMATE_MAX_PENDING_EMBEDDINGS, and start the metrics loop (--interval 120 works well for 5–10 worker threads).\nDry-run diagnostics – run chessmate twic-precheck &lt;pgn&gt; or spot-check the file for encoding with the troubleshooting commands below.\nIngest – execute chessmate ingest &lt;file.pgn&gt;; if the guard trips, either pause to let the queue drain or raise the threshold intentionally.\nEmbed – keep the worker running (dune exec embedding_worker -- --workers N --poll-sleep 1.0) and verify completions rise faster than pending.\nPrune duplicates – after re-ingest cycles, call scripts/prune_pending_jobs.sh &lt;batch&gt; until it reports 0 to clear leftover vectorized positions.\nPost-run checks – capture the final metrics snapshot, confirm pending is near zero, and archive logs for observability.\n\n\n\n\n\nAPI and CLI calls automatically include agent insights when AGENT_API_KEY is present.\nMonitor agent warnings returned by the API (e.g., “Agent evaluation failed…” or token usage summaries).\nTune AGENT_REASONING_EFFORT + AGENT_VERBOSITY jointly (high/high for deep audits, medium/medium for balanced responses).\nEnable caching by setting AGENT_CACHE_CAPACITY=&lt;n&gt; (e.g. 1000) to reuse evaluations across identical queries; clear or lower the value if memory pressure appears.\nTelemetry: each agent call logs a [agent-telemetry] JSON line with candidate counts, latency, token usage, and optional cost estimates. Configure per-1K token costs via AGENT_COST_INPUT_PER_1K, AGENT_COST_OUTPUT_PER_1K, and AGENT_COST_REASONING_PER_1K to surface USD totals.\nIf GPT-5 is unreachable, results fall back to heuristic scoring and a warning appears in the response; investigate network/API limits before re-enabling.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#backups-restore",
+    "href": "OPERATIONS.html#backups-restore",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Postgres: schedule pg_dump + WAL archiving; store artifacts in secure object storage.\nQdrant: use built-in snapshots (qdrant snapshot create --path /qdrant/storage/snapshots/&lt;ts&gt;); sync to external storage.\nRestore workflow: stop services → restore Postgres dump → restore Qdrant snapshot → rerun migrations (if needed) → restart worker/API → re-ingest if deltas are missing.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#security-access",
+    "href": "OPERATIONS.html#security-access",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Terminate TLS at reverse proxy (nginx/Traefik) in front of API & Qdrant.\nProtect Qdrant with auth (token/mTLS); rotate credentials regularly.\nRestrict worker egress to OpenAI hosts via firewall rules.\nSeparate Postgres roles (application vs. admin) and use least privilege.\nRotate OPENAI_API_KEY, DB passwords, and tokens per incident response policy.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#monitoring-alerting",
+    "href": "OPERATIONS.html#monitoring-alerting",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Track: API latency/p95, query success rate, embedding throughput, job queue depth (via scripts/embedding_metrics.sh or SQL), Postgres replication lag, disk usage on data/ volumes.\nAlerts: latency &gt; 2s sustained, backlog &gt; 500 jobs, embedding failure rate &gt; 5%/h, disk utilization &gt; 80%, Qdrant/DB down. Hook alerts into the guard limits to warn before ingest halts.\nDashboard: combine Postgres exporter, Qdrant metrics, OCaml counters (future Prometheus integration), and log the metrics script output for lightweight visibility.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#incident-response",
+    "href": "OPERATIONS.html#incident-response",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Acknowledge alert/page.\nCheck dashboards/logs for correlated spikes.\nIf Qdrant down: return 503s quickly, pause worker.\nIf Postgres degraded: pause ingestion, run read-only mode.\nCapture root cause + mitigation in docs/INCIDENTS/&lt;date&gt;.md; assign follow-up actions.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#maintenance-procedures",
+    "href": "OPERATIONS.html#maintenance-procedures",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "Schema changes: schedule during low traffic; return maintenance responses (503) for API.\nRe-embedding jobs: throttle worker to stay within OpenAI quota; monitor queue depth/durations and prune completed vectors from the pending queue before re-running (scripts/prune_pending_jobs.sh).\nUpgrades: bump Docker images, apply migrations, run smoke tests (chessmate query \"test\"), restart services.\nStack reset: docker compose down; remove data/postgres, data/qdrant; bring services back up, re-run migrations, re-ingest.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "OPERATIONS.html#cicd-considerations",
+    "href": "OPERATIONS.html#cicd-considerations",
+    "title": "Operations Playbook",
+    "section": "",
+    "text": "GitHub Actions (.github/workflows/ci.yml) runs dune build + dune test on pushes/PRs.\nUse pull-request checks as gatekeepers before deploy.\nFor release candidates: document validation commands (dune build, dune runtest, sample ingest/query run) in PR description.\nFuture hardening: add integration suite hitting /query against live Postgres/Qdrant in CI/CD, automate container builds/pushes.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Operations Playbook"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html",
+    "href": "ARCHITECTURE.html",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "Answer natural-language chess questions by combining structured metadata with vector similarity.\nSelf-host PostgreSQL + Qdrant; rely on OpenAI only for embedding generation.\nOffer OCaml CLIs and HTTP services to support ingestion and retrieval workflows.\n\n\n\n\nflowchart TD\n  subgraph Clients\n    CLI[\"CLI (chessmate)\"]\n  end\n\n  subgraph Services\n    API[\"Query API (Opium)\"]\n    Worker[\"Embedding Worker\"]\n  end\n\n  subgraph Storage\n    PG[(\"PostgreSQL\")]\n    QD[(\"Qdrant\")]\n  end\n\n  subgraph Integrations\n    OpenAI[(\"OpenAI Embeddings\")]\n  end\n\n  CLI --&gt;|\"HTTP /query\"| API\n  CLI --&gt;|\"Ingest PGN\"| PG\n  API --&gt;|\"Metadata lookups\"| PG\n  API --&gt;|\"Vector search\"| QD\n  Worker --&gt;|\"Embedding jobs\"| PG\n  Worker --&gt;|\"Vectors\"| QD\n  Worker --&gt;|\"Embed FENs\"| OpenAI\n  PG --&gt;|\"Opening metadata\"| CLI\n\n\n\n\nCLI & API Layer: chessmate ingest / chessmate query commands and the Opium-based /query service route user intent into the platform.\nIngestion pipeline (lib/chess/pgn_parser, lib/storage/repo_postgres): parses PGNs, derives FEN snapshots, extracts ECO/opening metadata, persists games/positions/embedding jobs in Postgres, and now enforces a configurable guard to pause ingestion when the embedding queue is saturated.\nEmbedding pipeline (services/embedding_worker): polls embedding_jobs, batches FEN strings, calls OpenAI embeddings, writes vectors to Qdrant, and records vector_id back in Postgres. Operators track throughput with scripts/embedding_metrics.sh while scaling workers via the --workers flag and rely on CHESSMATE_MAX_PENDING_EMBEDDINGS to keep ingest pressure in check.\nHybrid query pipeline (lib/query, lib/chess/openings): converts natural-language questions into structured filters (openings/ratings/phases), plans hybrid metadata/vector lookups, and assembles responses.\n\n\n\n\ngraph LR\n  A[PGN File] --&gt;|Parse headers/SAN/FEN| B[Ingestion Pipeline]\n  B --&gt;|Persist players/games/positions| C[(PostgreSQL)]\n  B --&gt;|Enqueue FEN jobs| D[embedding_jobs]\n  E[Embedding Worker] --&gt;|Poll jobs| D\n  E --&gt;|Call embeddings| F[(OpenAI API)]\n  E --&gt;|Upsert vectors| G[(Qdrant)]\n  E --&gt;|Update vector_id| C\n  H[Query CLI/API] --&gt;|Natural language question| I[Query Intent]\n  I --&gt;|Opening/rating filters| J[Planner]\n  J --&gt;|Metadata lookup| C\n  J --&gt;|Vector lookup| G\n  J --&gt;|Formatted response| H\nDetailed steps: 1. Ingest: PGN file → parse headers/SAN/FEN → extract player, result, ECO/opening slug → persist to Postgres (games, players, positions) → enqueue embedding_jobs for each FEN, with a guard on queue depth (CHESSMATE_MAX_PENDING_EMBEDDINGS) to keep backlog manageable. 2. Embed: Worker polls pending jobs → batches FENs → calls OpenAI embeddings → upserts into Qdrant (vector + payload) → updates Postgres positions.vector_id and job status. 3. Query: CLI/API receives question → Query_intent.analyse normalizes text, maps openings via ECO catalogue, infers rating/phase filters → prototype planner scores curated vector/keyword results (future: live Postgres + Qdrant queries) → aggregates response via Result_formatter.\n\n\n\n\nPostgreSQL: games (players, ECO, opening_slug), positions (ply, fen, san, vector_id), embedding_jobs, annotations. Additional indexes on ratings, ECO, opening slug, and vector_id accelerate filtering.\nQdrant: positions collection holding dense FEN embeddings and payload fields (player names, ECO range, move metadata) to support hybrid queries.\nVolumes: data/postgres and data/qdrant mount persistent storage under Docker Compose for reproducible local environments.\n\n\n\n\n\nlib/chess: PGN/FEN parsing, ECO/opening catalogue, domain metadata models.\nlib/storage: Postgres primitives (Repo_postgres), embedding queue helpers, future Qdrant adapter.\nlib/embedding: OpenAI client stubs, payload builders, caching (planned).\nlib/query: intent parsing, hybrid planner scaffold, result formatting.\nlib/cli: shared CLI glue + ingest/query subcommands.\nservices/: standalone executables (embedding worker, API prototype).\n\n\n\n\n\nQuery API (prototype): Opium HTTP service (/query) that parses intent, applies opening/rating filters, and returns curated responses. When AGENT_API_KEY is present it also invokes GPT-5 to re-rank results, add explanations/themes, and reports token usage. Future work: wire to live Postgres/Qdrant, expose metrics/health endpoints.\nEmbedding Worker: long-running job consumer with retry/backoff, batching, and state transitions.\nBackground Jobs (planned): re-embedding runs, data validation, analytics refresh pipelines.\n\n\n\n\n\n\nsequenceDiagram\n  participant CLI as chessmate ingest\n  participant Parser as PGN Parser\n  participant PG as PostgreSQL\n  participant Jobs as embedding_jobs\n  participant Worker as Embedding Worker\n  participant OpenAI as OpenAI API\n  participant QD as Qdrant\n\n  CLI-&gt;&gt;Parser: parse PGN (headers, SAN, FEN)\n  Parser--&gt;&gt;CLI: metadata + moves\n  CLI-&gt;&gt;PG: INSERT game/player/positions\n  CLI-&gt;&gt;Jobs: INSERT embedding job rows\n  Worker-&gt;&gt;Jobs: fetch pending jobs\n  Worker-&gt;&gt;PG: mark job started\n  Worker-&gt;&gt;OpenAI: embed FEN batch\n  OpenAI--&gt;&gt;Worker: vectors\n  Worker-&gt;&gt;QD: upsert vectors + payload\n  Worker-&gt;&gt;PG: mark job completed (vector_id)\n\n\n\nsequenceDiagram\n  participant User as User/CLI\n  participant API as Query API\n  participant Intent as Query Intent\n  participant Planner as Hybrid Planner\n  participant Catalog as Openings Catalogue\n  participant Store as PostgreSQL/Qdrant (planned)\n\n  User-&gt;&gt;API: GET/POST /query\n  API-&gt;&gt;Intent: analyse(question)\n  Intent-&gt;&gt;Catalog: map openings to ECO ranges\n  Catalog--&gt;&gt;Intent: opening slug + range\n  Intent--&gt;&gt;Planner: plan (filters, keywords, rating)\n  Planner-&gt;&gt;Store: (future) fetch metadata + vectors\n  Planner--&gt;&gt;API: curated results (prototype dataset)\n  API--&gt;&gt;User: JSON response (plan + results)\n\n\n\nstateDiagram-v2\n  [*] --&gt; Pending\n  Pending --&gt; InProgress: worker polls job\n  InProgress --&gt; Completed: vector stored + job updated\n  InProgress --&gt; Failed: OpenAI/Qdrant error\n  Failed --&gt; Pending: retry/backoff strategy\n  Completed --&gt; [*]\n\n\n\nclassDiagram\n  class Chess {\n    +Pgn_parser\n    +Game_metadata\n    +Openings\n    +Pgn_to_fen\n  }\n  class Storage {\n    +Repo_postgres\n    +Ingestion_queue\n  }\n  class Embedding {\n    +Embedding_client\n    +Embeddings_cache\n    +Vector_payload\n  }\n  class Query {\n    +Query_intent\n    +Hybrid_planner\n    +Result_formatter\n  }\n  class CLI {\n    +Ingest_command\n    +Search_command\n    +Cli_common\n  }\n  class Services {\n    +Embedding_worker\n    +Chessmate_api\n  }\n  Chess --&gt; Storage : persist games/positions\n  Chess --&gt; Query : opening catalogue\n  Storage --&gt; Embedding : enqueue jobs\n  Embedding --&gt; Storage : update vector_id\n  Query --&gt; Storage : metadata lookups (planned)\n  Query --&gt; Embedding : vector scoring (planned)\n  CLI --&gt; Storage : ingest (DATABASE_URL)\n  CLI --&gt; Services : query via HTTP API\n  Services --&gt; Query : leverage planner modules\n\n\n\nsequenceDiagram\n  participant Worker as Embedding Worker\n  participant Jobs as embedding_jobs\n  participant PG as PostgreSQL\n  participant OpenAI as OpenAI API\n\n  Worker-&gt;&gt;Jobs: fetch pending job\n  Worker-&gt;&gt;PG: mark job started\n  Worker-&gt;&gt;OpenAI: embed FEN batch\n  OpenAI--&gt;&gt;Worker: error response / rate limit\n  Worker-&gt;&gt;PG: mark job failed (last_error)\n  Worker--&gt;&gt;Jobs: schedule retry after backoff\n\n\n\n\n\nOpenAI embeddings API (ingestion/worker).\nFuture: Qdrant live queries (HTTP/gRPC) in the planner.\nObservability (planned): structured logging + Prometheus metrics for worker/API.\n\n\n\n\n\nReplace heuristic planner with live Postgres/Qdrant hybrid search (RRF, payload filters).\nIntent upgrades: expand opening catalogue, consider LLM-assisted classification with deterministic fallbacks.\nAdd Redis (or similar) caching for frequently asked questions / evaluation fixtures.\nDeployment hardening: containerize API/worker, add CI integration tests, explore Kubernetes/Nomad rollouts.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#system-goals",
+    "href": "ARCHITECTURE.html#system-goals",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "Answer natural-language chess questions by combining structured metadata with vector similarity.\nSelf-host PostgreSQL + Qdrant; rely on OpenAI only for embedding generation.\nOffer OCaml CLIs and HTTP services to support ingestion and retrieval workflows.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#visual-overview",
+    "href": "ARCHITECTURE.html#visual-overview",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "flowchart TD\n  subgraph Clients\n    CLI[\"CLI (chessmate)\"]\n  end\n\n  subgraph Services\n    API[\"Query API (Opium)\"]\n    Worker[\"Embedding Worker\"]\n  end\n\n  subgraph Storage\n    PG[(\"PostgreSQL\")]\n    QD[(\"Qdrant\")]\n  end\n\n  subgraph Integrations\n    OpenAI[(\"OpenAI Embeddings\")]\n  end\n\n  CLI --&gt;|\"HTTP /query\"| API\n  CLI --&gt;|\"Ingest PGN\"| PG\n  API --&gt;|\"Metadata lookups\"| PG\n  API --&gt;|\"Vector search\"| QD\n  Worker --&gt;|\"Embedding jobs\"| PG\n  Worker --&gt;|\"Vectors\"| QD\n  Worker --&gt;|\"Embed FENs\"| OpenAI\n  PG --&gt;|\"Opening metadata\"| CLI",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#component-overview",
+    "href": "ARCHITECTURE.html#component-overview",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "CLI & API Layer: chessmate ingest / chessmate query commands and the Opium-based /query service route user intent into the platform.\nIngestion pipeline (lib/chess/pgn_parser, lib/storage/repo_postgres): parses PGNs, derives FEN snapshots, extracts ECO/opening metadata, persists games/positions/embedding jobs in Postgres, and now enforces a configurable guard to pause ingestion when the embedding queue is saturated.\nEmbedding pipeline (services/embedding_worker): polls embedding_jobs, batches FEN strings, calls OpenAI embeddings, writes vectors to Qdrant, and records vector_id back in Postgres. Operators track throughput with scripts/embedding_metrics.sh while scaling workers via the --workers flag and rely on CHESSMATE_MAX_PENDING_EMBEDDINGS to keep ingest pressure in check.\nHybrid query pipeline (lib/query, lib/chess/openings): converts natural-language questions into structured filters (openings/ratings/phases), plans hybrid metadata/vector lookups, and assembles responses.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#data-flow",
+    "href": "ARCHITECTURE.html#data-flow",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "graph LR\n  A[PGN File] --&gt;|Parse headers/SAN/FEN| B[Ingestion Pipeline]\n  B --&gt;|Persist players/games/positions| C[(PostgreSQL)]\n  B --&gt;|Enqueue FEN jobs| D[embedding_jobs]\n  E[Embedding Worker] --&gt;|Poll jobs| D\n  E --&gt;|Call embeddings| F[(OpenAI API)]\n  E --&gt;|Upsert vectors| G[(Qdrant)]\n  E --&gt;|Update vector_id| C\n  H[Query CLI/API] --&gt;|Natural language question| I[Query Intent]\n  I --&gt;|Opening/rating filters| J[Planner]\n  J --&gt;|Metadata lookup| C\n  J --&gt;|Vector lookup| G\n  J --&gt;|Formatted response| H\nDetailed steps: 1. Ingest: PGN file → parse headers/SAN/FEN → extract player, result, ECO/opening slug → persist to Postgres (games, players, positions) → enqueue embedding_jobs for each FEN, with a guard on queue depth (CHESSMATE_MAX_PENDING_EMBEDDINGS) to keep backlog manageable. 2. Embed: Worker polls pending jobs → batches FENs → calls OpenAI embeddings → upserts into Qdrant (vector + payload) → updates Postgres positions.vector_id and job status. 3. Query: CLI/API receives question → Query_intent.analyse normalizes text, maps openings via ECO catalogue, infers rating/phase filters → prototype planner scores curated vector/keyword results (future: live Postgres + Qdrant queries) → aggregates response via Result_formatter.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#storage-design",
+    "href": "ARCHITECTURE.html#storage-design",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "PostgreSQL: games (players, ECO, opening_slug), positions (ply, fen, san, vector_id), embedding_jobs, annotations. Additional indexes on ratings, ECO, opening slug, and vector_id accelerate filtering.\nQdrant: positions collection holding dense FEN embeddings and payload fields (player names, ECO range, move metadata) to support hybrid queries.\nVolumes: data/postgres and data/qdrant mount persistent storage under Docker Compose for reproducible local environments.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#module-boundaries",
+    "href": "ARCHITECTURE.html#module-boundaries",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "lib/chess: PGN/FEN parsing, ECO/opening catalogue, domain metadata models.\nlib/storage: Postgres primitives (Repo_postgres), embedding queue helpers, future Qdrant adapter.\nlib/embedding: OpenAI client stubs, payload builders, caching (planned).\nlib/query: intent parsing, hybrid planner scaffold, result formatting.\nlib/cli: shared CLI glue + ingest/query subcommands.\nservices/: standalone executables (embedding worker, API prototype).",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#service-responsibilities",
+    "href": "ARCHITECTURE.html#service-responsibilities",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "Query API (prototype): Opium HTTP service (/query) that parses intent, applies opening/rating filters, and returns curated responses. When AGENT_API_KEY is present it also invokes GPT-5 to re-rank results, add explanations/themes, and reports token usage. Future work: wire to live Postgres/Qdrant, expose metrics/health endpoints.\nEmbedding Worker: long-running job consumer with retry/backoff, batching, and state transitions.\nBackground Jobs (planned): re-embedding runs, data validation, analytics refresh pipelines.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#sequence-diagrams",
+    "href": "ARCHITECTURE.html#sequence-diagrams",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "sequenceDiagram\n  participant CLI as chessmate ingest\n  participant Parser as PGN Parser\n  participant PG as PostgreSQL\n  participant Jobs as embedding_jobs\n  participant Worker as Embedding Worker\n  participant OpenAI as OpenAI API\n  participant QD as Qdrant\n\n  CLI-&gt;&gt;Parser: parse PGN (headers, SAN, FEN)\n  Parser--&gt;&gt;CLI: metadata + moves\n  CLI-&gt;&gt;PG: INSERT game/player/positions\n  CLI-&gt;&gt;Jobs: INSERT embedding job rows\n  Worker-&gt;&gt;Jobs: fetch pending jobs\n  Worker-&gt;&gt;PG: mark job started\n  Worker-&gt;&gt;OpenAI: embed FEN batch\n  OpenAI--&gt;&gt;Worker: vectors\n  Worker-&gt;&gt;QD: upsert vectors + payload\n  Worker-&gt;&gt;PG: mark job completed (vector_id)\n\n\n\nsequenceDiagram\n  participant User as User/CLI\n  participant API as Query API\n  participant Intent as Query Intent\n  participant Planner as Hybrid Planner\n  participant Catalog as Openings Catalogue\n  participant Store as PostgreSQL/Qdrant (planned)\n\n  User-&gt;&gt;API: GET/POST /query\n  API-&gt;&gt;Intent: analyse(question)\n  Intent-&gt;&gt;Catalog: map openings to ECO ranges\n  Catalog--&gt;&gt;Intent: opening slug + range\n  Intent--&gt;&gt;Planner: plan (filters, keywords, rating)\n  Planner-&gt;&gt;Store: (future) fetch metadata + vectors\n  Planner--&gt;&gt;API: curated results (prototype dataset)\n  API--&gt;&gt;User: JSON response (plan + results)\n\n\n\nstateDiagram-v2\n  [*] --&gt; Pending\n  Pending --&gt; InProgress: worker polls job\n  InProgress --&gt; Completed: vector stored + job updated\n  InProgress --&gt; Failed: OpenAI/Qdrant error\n  Failed --&gt; Pending: retry/backoff strategy\n  Completed --&gt; [*]\n\n\n\nclassDiagram\n  class Chess {\n    +Pgn_parser\n    +Game_metadata\n    +Openings\n    +Pgn_to_fen\n  }\n  class Storage {\n    +Repo_postgres\n    +Ingestion_queue\n  }\n  class Embedding {\n    +Embedding_client\n    +Embeddings_cache\n    +Vector_payload\n  }\n  class Query {\n    +Query_intent\n    +Hybrid_planner\n    +Result_formatter\n  }\n  class CLI {\n    +Ingest_command\n    +Search_command\n    +Cli_common\n  }\n  class Services {\n    +Embedding_worker\n    +Chessmate_api\n  }\n  Chess --&gt; Storage : persist games/positions\n  Chess --&gt; Query : opening catalogue\n  Storage --&gt; Embedding : enqueue jobs\n  Embedding --&gt; Storage : update vector_id\n  Query --&gt; Storage : metadata lookups (planned)\n  Query --&gt; Embedding : vector scoring (planned)\n  CLI --&gt; Storage : ingest (DATABASE_URL)\n  CLI --&gt; Services : query via HTTP API\n  Services --&gt; Query : leverage planner modules\n\n\n\nsequenceDiagram\n  participant Worker as Embedding Worker\n  participant Jobs as embedding_jobs\n  participant PG as PostgreSQL\n  participant OpenAI as OpenAI API\n\n  Worker-&gt;&gt;Jobs: fetch pending job\n  Worker-&gt;&gt;PG: mark job started\n  Worker-&gt;&gt;OpenAI: embed FEN batch\n  OpenAI--&gt;&gt;Worker: error response / rate limit\n  Worker-&gt;&gt;PG: mark job failed (last_error)\n  Worker--&gt;&gt;Jobs: schedule retry after backoff",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#external-integrations",
+    "href": "ARCHITECTURE.html#external-integrations",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "OpenAI embeddings API (ingestion/worker).\nFuture: Qdrant live queries (HTTP/gRPC) in the planner.\nObservability (planned): structured logging + Prometheus metrics for worker/API.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "ARCHITECTURE.html#future-enhancements",
+    "href": "ARCHITECTURE.html#future-enhancements",
+    "title": "Architecture Overview",
+    "section": "",
+    "text": "Replace heuristic planner with live Postgres/Qdrant hybrid search (RRF, payload filters).\nIntent upgrades: expand opening catalogue, consider LLM-assisted classification with deterministic fallbacks.\nAdd Redis (or similar) caching for frequently asked questions / evaluation fixtures.\nDeployment hardening: containerize API/worker, add CI integration tests, explore Kubernetes/Nomad rollouts.",
+    "crumbs": [
+      "Home",
+      "Architecture & Ops",
+      "Architecture Overview"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html",
+    "href": "GUIDELINES.html",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Use GitHub Issues for roadmap items and bug reports; link every PR to its parent issue.\nCapture design decisions in docs/ADR-&lt;id&gt;.md; summarize outcome and trade-offs.\nDaily async updates: share progress, blockers, next steps in the team channel.\n\n\n\n\n\nBranch naming: feature/&lt;topic&gt;, fix/&lt;issue-id&gt;, docs/&lt;subject&gt;.\nKeep PRs under ~400 lines; split large efforts into reviewable slices.\nPR template must include: summary, testing evidence (dune build, dune test, integration steps), migration impact, rollback plan.\nRequire at least one peer review; reviewers focus on correctness, resiliency, and test coverage.\nNo direct pushes to main; use protected branch rules and status checks (lint, tests) before merge.\n\n\n\n\n\nOCaml: open! Base, explicit interfaces (.mli), no Stdlib unless necessary; prefer Or_error.t for recoverable failures.\nCLI/services: centralize side effects in lib/storage modules, keep lib/chess pure.\nUse pattern matching, avoid partial functions, add concise comments for non-obvious logic.\nApply dune fmt before commits; ensure dune build and dune test pass locally.\nKeep GPL notice headers at the top of every source/interface file; copy the template from existing modules when adding new files.\n\n\n\n\n\nUnit tests with Alcotest for each new module; co-locate fixtures under test/.\nIntegration tests require dockerized Postgres/Qdrant; mark with [@tags \"integration\"] once tagging is wired.\nRegression suite: update curated NL queries when behavior changes, and document acceptance criteria.\nBroken tests must be fixed or skipped with justification in issue tracker, never left red on main.\n\n\n\n\n\nKeep docs/IMPLEMENTATION_PLAN.md updated after major milestones or scope changes.\nUpdate docs/ARCHITECTURE.md when component boundaries or data flows evolve.\nAdd service runbooks or incident retrospectives under docs/ as issues arise.\n\n\n\n\n\nCut release branch release/&lt;version&gt; once QA sign-off achieved.\nBump version numbers (opam, docs) and update changelog.\nRun full pipeline: unit + integration tests, end-to-end smoke (embedding + query).\nTag release, publish containers, and notify stakeholders with deployment instructions.\n\n\n\n\n\nDo encapsulate database access behind Repo_* modules.\nDo write small, composable functions and favour explicit types.\nDon’t commit secrets or .env files; rely on environment variables or secret managers.\nDon’t merge failing pipelines or bypass code review.\n\n\n\n\n\nGitHub Actions must be green before merge; enable required status checks on main.\nInclude CI badge in PR descriptions if the pipeline fails, along with a summary of the root cause and remediation plan.\nRe-run workflows via the Actions tab after rebases or flaky failures; document flakes in an issue for follow-up.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#communication",
+    "href": "GUIDELINES.html#communication",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Use GitHub Issues for roadmap items and bug reports; link every PR to its parent issue.\nCapture design decisions in docs/ADR-&lt;id&gt;.md; summarize outcome and trade-offs.\nDaily async updates: share progress, blockers, next steps in the team channel.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#branching-pr-hygiene",
+    "href": "GUIDELINES.html#branching-pr-hygiene",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Branch naming: feature/&lt;topic&gt;, fix/&lt;issue-id&gt;, docs/&lt;subject&gt;.\nKeep PRs under ~400 lines; split large efforts into reviewable slices.\nPR template must include: summary, testing evidence (dune build, dune test, integration steps), migration impact, rollback plan.\nRequire at least one peer review; reviewers focus on correctness, resiliency, and test coverage.\nNo direct pushes to main; use protected branch rules and status checks (lint, tests) before merge.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#coding-standards",
+    "href": "GUIDELINES.html#coding-standards",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "OCaml: open! Base, explicit interfaces (.mli), no Stdlib unless necessary; prefer Or_error.t for recoverable failures.\nCLI/services: centralize side effects in lib/storage modules, keep lib/chess pure.\nUse pattern matching, avoid partial functions, add concise comments for non-obvious logic.\nApply dune fmt before commits; ensure dune build and dune test pass locally.\nKeep GPL notice headers at the top of every source/interface file; copy the template from existing modules when adding new files.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#testing-expectations",
+    "href": "GUIDELINES.html#testing-expectations",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Unit tests with Alcotest for each new module; co-locate fixtures under test/.\nIntegration tests require dockerized Postgres/Qdrant; mark with [@tags \"integration\"] once tagging is wired.\nRegression suite: update curated NL queries when behavior changes, and document acceptance criteria.\nBroken tests must be fixed or skipped with justification in issue tracker, never left red on main.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#documentation",
+    "href": "GUIDELINES.html#documentation",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Keep docs/IMPLEMENTATION_PLAN.md updated after major milestones or scope changes.\nUpdate docs/ARCHITECTURE.md when component boundaries or data flows evolve.\nAdd service runbooks or incident retrospectives under docs/ as issues arise.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#release-process",
+    "href": "GUIDELINES.html#release-process",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Cut release branch release/&lt;version&gt; once QA sign-off achieved.\nBump version numbers (opam, docs) and update changelog.\nRun full pipeline: unit + integration tests, end-to-end smoke (embedding + query).\nTag release, publish containers, and notify stakeholders with deployment instructions.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#coding-dodont-quick-list",
+    "href": "GUIDELINES.html#coding-dodont-quick-list",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "Do encapsulate database access behind Repo_* modules.\nDo write small, composable functions and favour explicit types.\nDon’t commit secrets or .env files; rely on environment variables or secret managers.\nDon’t merge failing pipelines or bypass code review.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "GUIDELINES.html#continuous-integration-expectations",
+    "href": "GUIDELINES.html#continuous-integration-expectations",
+    "title": "Collaboration & Quality Guidelines",
+    "section": "",
+    "text": "GitHub Actions must be green before merge; enable required status checks on main.\nInclude CI badge in PR descriptions if the pipeline fails, along with a summary of the root cause and remediation plan.\nRe-run workflows via the Actions tab after rebases or flaky failures; document flakes in an issue for follow-up.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Collaboration & Quality Guidelines"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html",
+    "href": "IMPLEMENTATION_PLAN.html",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Build a self-hosted chess tutor (“chessmate”) that answers natural-language questions by combining structured metadata, semantic search, and LLM-based reasoning. The architecture evolves through three phases to balance simplicity, scalability, and agent-friendliness:\n\nPhase 1 (MVP): Simple PostgreSQL filters + agent evaluation\nPhase 2 (Scale): Hybrid search with vector pre-filtering + agent ranking\nPhase 3 (Production): Pre-annotated tactical themes + deterministic filters\n\nCore principle: Design transparent, “agent-friendly” search tools that reasoning systems can understand and iteratively refine, rather than opaque ranking algorithms.\n\n\n\n\n\n\n\n\n\n\n\nMilestone\nStatus\nNotes\n\n\n\n\n1 – Repository scaffolding\n✅ complete\nBaseline structure, Alcotest smoke tests, CLI stubs.\n\n\n2 – Data ingestion foundations\n✅ complete\nReal PGN parser, migrations, chessmate ingest wired to Postgres.\n\n\n3 – Embedding pipeline\n✅ complete\nJobs persisted, embedding worker loops, vector IDs recorded.\n\n\n4 – Hybrid query prototype\n✅ complete\nIntent heuristics, /query API, CLI integration, ECO catalogue.\n\n\n5 – Simple agent-friendly search\n🚧 in progress\nPostgreSQL filters + LLM agent evaluation (Phase 1 MVP).\n\n\n6 – Hybrid vector pre-filtering\n📋 planned\nQdrant narrows candidates, agent ranks final results (Phase 2).\n\n\n7 – Theme pre-annotation\n📋 planned\nTactical themes extracted during ingestion (Phase 3).\n\n\n\n\n\n\n\nREADME.md highlights today’s feature surface: PGN ingestion, the curated hybrid query prototype, and the embedding worker skeleton that still targets OpenAI.\nRELEASE_NOTES.md (v0.4.1) captures the ingest guard and parallel worker improvements while confirming the /query path still ships curated responses—Milestone 6 must close that gap by wiring live Postgres + Qdrant.\ndocs/ARCHITECTURE.md and docs/CHESSMATE_FOR_DUMMIES.md walk through ingestion → embedding → query flows and explicitly flag the current planner’s reliance on curated data.\ndocs/DEVELOPER.md, CLAUDE.md, and AGENTS.md lock in environment, tooling, and style guardrails—milestones should assume opam switch usage, two-space indentation, and open! Base everywhere.\ndocs/OPERATIONS.md and docs/TROUBLESHOOTING.md capture the smoke tests, health checks, and reset procedures that every milestone must keep healthy (e.g., quick Postgres connectivity check, embedding queue draining).\ndocs/PROMPTS.md already curates prompt templates for theme detection, pawn structure work, and future disambiguation—reuse these instead of inventing new agent prompts.\ndocs/GUIDELINES.md reiterates the documentation-first culture; roadmap items should end with updates to the relevant handbook/runbook sections.\n\nImplications for the roadmap\n\nTreat the curated /query responses as a documented limitation; Milestone 6 must close it by wiring the hybrid planner to live stores and updating docs to match.\nBake documentation/runbook edits into each milestone so README, developer, and operations guides stay in sync with behavior changes.\nReuse the shared prompt catalogue when implementing agent evaluation or theme extraction to preserve consistency across tooling and docs.\n\n\n\n\n\n\nDesign Philosophy: Transparent, predictable search that agents can reason about.\ngraph LR\n  User[User Query] --&gt; Intent[Intent Parser]\n  Intent --&gt; PG[(PostgreSQL)]\n  PG --&gt; Filter[Structured Filters&lt;br/&gt;ECO, ratings, result]\n  Filter --&gt; Candidates[Overfetch 50 games]\n  Candidates --&gt; Agent[LLM Agent Evaluator]\n  Agent --&gt; Results[Top 5 Results]\nComponents: - PostgreSQL: Deterministic filters (opening, ratings, result) - Intent Parser: Extract structured criteria + tactical keywords - LLM Agent: Reads game moves, evaluates tactical themes, ranks results\nExample Query: “Find King’s Indian games where White executed a queenside majority attack, White ≥ 2500 ELO”\nFlow: 1. Intent parser extracts: opening=E60-E99, white_rating&gt;=2500, theme=queenside_majority 2. PostgreSQL filters: WHERE opening_slug='kings_indian_defense' AND white_rating&gt;=2500 → 50 candidates 3. Agent evaluates: Reads move sequences, identifies queenside pawn majority patterns → ranks top 5\nPros: Simple, cheap, transparent to agents, good for MVP (&lt;100K games)\nCons: Agent evaluation costs tokens, slower for large candidate sets\n\n\n\n\nDesign Philosophy: Use vector search as a middle layer to narrow candidates efficiently, then let agents reason about final selections.\ngraph LR\n  User[User Query] --&gt; Intent[Intent Parser]\n  Intent --&gt; PG[(PostgreSQL)]\n  PG --&gt; Filter1[1M games → 10K&lt;br/&gt;ECO + ratings]\n  Filter1 --&gt; Qdrant[(Qdrant)]\n  Qdrant --&gt; Filter2[10K → 100 positions&lt;br/&gt;vector similarity]\n  Filter2 --&gt; Agent[Agent Ranking]\n  Agent --&gt; Results[Top 5 Results]\nComponents: - PostgreSQL: Narrow by structured filters (10x reduction) - Qdrant: Semantic position similarity (100x reduction) - Agent: Final ranking and validation (100 → 5 results)\nWhen to Use: Database &gt; 100K games, unannotated PGN files, position-level pattern queries\nPros: Scales to millions of games, finds patterns without annotations, position-level granularity\nCons: More complex infrastructure, embedding costs, less transparent to agents\n\n\n\n\nDesign Philosophy: Pre-compute tactical themes during ingestion using LLM/rules, then use deterministic filters.\ngraph LR\n  Ingestion[PGN Ingestion] --&gt; Themes[Theme Extraction&lt;br/&gt;LLM/Rules]\n  Themes --&gt; PG[(PostgreSQL&lt;br/&gt;+ theme tags)]\n  User[User Query] --&gt; Intent[Intent Parser]\n  Intent --&gt; PG\n  PG --&gt; Filter[Deterministic Filters&lt;br/&gt;ECO + ratings + themes]\n  Filter --&gt; Agent[Agent Refinement&lt;br/&gt;optional]\n  Agent --&gt; Results[Top 5 Results]\nComponents: - Theme Extractor: Identifies tactical patterns during ingestion (one-time cost) - PostgreSQL: Stores pre-computed theme tags (e.g., themes=['queenside_majority', 'king_attack']) - Query: Deterministic filtering on theme tags\nExample Tags: isolated_pawn, bishop_pair, rook_endgame, sacrifice, discovered_attack, pawn_storm\nPros: Fast queries, transparent filters, no agent evaluation needed for most queries, works offline\nCons: Requires upfront theme extraction, may miss novel patterns\n\n\n\n\n\n\n\n\ngames: PGN text, ECO, opening slug, event/site/date, players, ratings, result, themes (JSONB array)\nplayers: name, aliases/FIDE IDs, rating peaks\npositions: game_id, ply, FEN, SAN, eval, vector_id, tactical_features (JSONB), timestamps\nembedding_jobs: status machine (pending, in_progress, completed, failed), FEN payload\nthemes (Phase 3): Tactical theme taxonomy with definitions for LLM extraction\n\n\n\n\n\nB-tree: white_rating, black_rating, eco_code, opening_slug, played_on\nGIN: themes (JSONB array), tactical_features\nFull-text: pgn (for keyword search in annotations)\n\n\n\n\n{\n  \"game_id\": 42,\n  \"white_name\": \"Kasparov\",\n  \"black_name\": \"Karpov\",\n  \"white_elo\": 2800,\n  \"black_elo\": 2750,\n  \"opening_slug\": \"kings_indian_defense\",\n  \"eco_code\": \"E97\",\n  \"ply\": 25,\n  \"themes\": [\"queenside_majority\", \"king_attack\"],\n  \"phase\": \"middlegame\"\n}\n\n\n\n\n\n\nchess/: PGN parser, game metadata, FEN engine, ECO catalogue, theme taxonomy\nstorage/: Repo_postgres, queue helpers, Qdrant adapter (Phase 2)\nembedding/: OpenAI client, caching (planned), payload builders\nquery/: intent heuristics, agent evaluator, hybrid planner, result formatter\nagents/: LLM client wrappers, prompt templates for theme detection and result ranking\ncli/: ingest/query commands, shared env helpers\n\n\n\n\n\n\n\nsequenceDiagram\n  participant User as User/CLI\n  participant API as Query API\n  participant Intent as Query Intent\n  participant PG as PostgreSQL\n  participant Agent as LLM Agent\n\n  User-&gt;&gt;API: POST /query \"Find KID games with queenside majority\"\n  API-&gt;&gt;Intent: analyse(question)\n  Intent-&gt;&gt;PG: SELECT * WHERE opening='E60-E99' LIMIT 50\n  PG--&gt;&gt;Intent: 50 candidate games\n  Intent-&gt;&gt;Agent: evaluate_tactics(candidates, theme='queenside_majority')\n  Agent--&gt;&gt;Intent: ranked results with explanations\n  Intent--&gt;&gt;API: top 5 games + agent reasoning\n  API--&gt;&gt;User: JSON response\n\n\n\nsequenceDiagram\n  participant User as User/CLI\n  participant API as Query API\n  participant Intent as Query Intent\n  participant PG as PostgreSQL\n  participant Qdrant as Qdrant\n  participant Agent as LLM Agent\n\n  User-&gt;&gt;API: POST /query \"Similar to Kasparov-Topalov 1999\"\n  API-&gt;&gt;Intent: analyse(question)\n  Intent-&gt;&gt;PG: SELECT * WHERE white_rating&gt;2600 (10K games)\n  PG--&gt;&gt;Intent: 10K candidates\n  Intent-&gt;&gt;Qdrant: vector_search(position_embed, limit=100)\n  Qdrant--&gt;&gt;Intent: 100 similar positions\n  Intent-&gt;&gt;Agent: rank_and_explain(positions)\n  Agent--&gt;&gt;Intent: top 5 with similarity reasoning\n  Intent--&gt;&gt;API: results + scores\n  API--&gt;&gt;User: JSON response\n\n\n\nsequenceDiagram\n  participant CLI as chessmate ingest\n  participant Parser as PGN Parser\n  participant Themes as Theme Extractor\n  participant Agent as LLM Theme Detector\n  participant PG as PostgreSQL\n\n  CLI-&gt;&gt;Parser: parse(game.pgn)\n  Parser--&gt;&gt;CLI: moves + metadata\n  CLI-&gt;&gt;Themes: extract_themes(moves)\n  Themes-&gt;&gt;Agent: analyze_tactics(positions)\n  Agent--&gt;&gt;Themes: themes=['queenside_majority', 'rook_endgame']\n  Themes--&gt;&gt;CLI: enriched metadata\n  CLI-&gt;&gt;PG: INSERT game + themes\n\n\n\n\n\n\nUnit tests (Alcotest): PGN parser, metadata extraction, query intent heuristics, theme taxonomy\nAgent evaluation tests: Prompt regression suite, theme detection accuracy metrics\nIntegration tests (Phase 2): Dockerized Postgres + Qdrant for ingest/query pipelines\nRegression suite: Curated NL queries with expected results\nCI (GitHub Actions): dune build, dune runtest on pushes/PRs\n\n\n\n\n\n\n\n\nDocker Compose: Postgres + Qdrant (optional in Phase 1), volumes under data/\nMigrations: ./scripts/migrate.sh (idempotent)\nEnvironment: DATABASE_URL, CHESSMATE_API_URL, OPENAI_API_KEY\n\n\n\n\n\nContainerized API + worker services\nTheme extraction: Background job queue (similar to embedding worker)\nCaching: Redis for frequent queries\nObservability: Structured logs, Prometheus metrics, health endpoints\nSecurity: TLS, API auth, least-privilege DB roles\n\n\n\n\n\n\n\n\nObjective: Establish project skeleton, build system, initial tests.\nTasks: Scaffold modules, add Alcotest smoke tests, set up CLI stubs, ensure dune build.\nCheckpoints: dune build, dune fmt --check, dune test pass; directory layout matches plan.\n\n\n\n\nObjective: Parse PGNs, persist metadata, expose schema migrations.\nTasks: Real PGN parser, migrations/seeds, build chessmate ingest.\nCheckpoints: Ingest sample PGN → Postgres populated; SELECT count(*) FROM positions matches expectation.\n\n\n\n\nObjective: Generate embeddings, sync Qdrant with Postgres (foundation for Phase 2).\nTasks: Implement embedding client (retries/throttle), payload builder, embedding_worker service.\nCheckpoints: Docker stack brings up Postgres/Qdrant; worker inserts vectors; Postgres rows receive vector_id.\n\n\n\n\nObjective: Answer NL questions via heuristic intent parsing.\nTasks: Upgrade Query_intent heuristics (openings, ratings, keywords), add /query Opium API, wire chessmate query CLI, seed ECO catalogue.\nCheckpoints: CLI returns responses with filters; unit tests cover intent edge cases; docs updated.\n\n\n\n\nObjective: Implement Phase 1 MVP with transparent PostgreSQL filters plus an OpenAI GPT‑5 agent that ranks and explains results. All agent calls will use GPT‑5 (Responses API) and the new reasoning.effort control.\nTasks: 1. LLM Client & Config - Add lib/agents/gpt5_client.ml/.mli wrapping OpenAI GPT‑5 with env-driven settings: AGENT_API_KEY, AGENT_MODEL (default gpt-5), reasoning_effort (minimal|low|medium|high default medium), verbosity, concurrency limit, retry/backoff. - Remove temperature handling; expose knobs for reasoning.effort and verbosity as recommended in the GPT‑5 docs. 2. Prompt & Response Schema - Reuse/extend motifs in docs/PROMPTS.md to craft prompts that summarise filters, send truncated PGNs, and request JSON output containing score, themes, and explanation. - Implement robust response parsing with fallback when GPT‑5 returns malformed JSON. 3. Data Fetching - Add Repo_postgres.fetch_games_with_pgn ~ids and, if needed, Repo_postgres.fetch_positions ~ids to supply the agent with sufficient context (limit to 50 candidates per query). 4. Pipeline Integration - Extend Hybrid_executor (or introduce Agent_executor) to: fetch metadata → fetch PGNs → evaluate with GPT‑5 → combine heuristic score and agent score (configurable weights) → include agent explanation/effort metadata in results. - Run agent evaluations concurrently with a bounded worker pool to respect rate limits. 5. Cost & Telemetry - Track tokens and latency per call; log structured telemetry (JSON) including reasoning_effort, tokens, cost estimates. - Add optional caching (e.g., SQLite file or Redis key) keyed by plan+game to avoid re-billing identical prompts. 6. Testing - Unit tests for prompt generation and JSON response parsing (using canned GPT‑5 outputs). - Integration tests with a stubbed GPT‑5 client to validate the full Postgres → agent → response loop. - Update troubleshooting smoke test to cover agent-enabled queries and fallback behaviour. 7. Documentation & Runbooks - Update README, Operations, Troubleshooting with agent setup, reasoning.effort guidance, cost monitoring, and recovery steps when GPT‑5 is unavailable.\nCheckpoints: - Query “Find queenside majority attacks in King’s Indian” returns agent-ranked results with explanations (reasoning.effort tuned to high). - End-to-end latency &lt; 10 seconds for 50 candidates with reasoning.effort=medium; document trade-offs for low/high. - Structured logs show tokens, effort level, and per-query cost; metrics captured in Ops runbook. - Integration tests cover agent path; documentation reflects new workflow and failure modes.\nArchitecture Note: This milestone keeps reasoning transparent—PostgreSQL filters remain deterministic while GPT‑5 provides ranked insights with controllable depth via reasoning.effort.\n\n\n\n\nObjective: Implement Phase 2 for scale—use Qdrant as middle layer, agents for final ranking.\nTasks: 1. Wire live Qdrant integration into hybrid planner 2. Implement three-stage pipeline: PostgreSQL (10K→1K) → Qdrant (1K→100) → Agent (100→5) 3. Add configuration for vector weight vs. agent weight in final scoring 4. Build evaluation harness comparing Phase 1 (agent-only) vs. Phase 2 (hybrid) 5. Optimize Qdrant payload filters to mirror PostgreSQL capabilities 6. Instrument with metrics: query latency, candidate counts per stage, agent evaluation cost 7. Revise README, docs/ARCHITECTURE.md, and docs/CHESSMATE_FOR_DUMMIES.md to describe the live hybrid wiring and update troubleshooting guidance for Qdrant failures\nCheckpoints: - Query against 1M+ positions completes in &lt; 5 seconds (documented in docs/OPERATIONS.md as the new performance target) - Evaluation report shows recall/precision vs. Phase 1 baseline and is summarized in RELEASE_NOTES.md - Qdrant filters reduce candidates 100x before agent evaluation - Cost per query &lt; $0.10 (OpenAI embeddings + agent evaluation)\nTrade-off: More complex infrastructure (Qdrant required) but scales to millions of games.\n\n\n\n\nObjective: Implement Phase 3 production architecture with pre-computed tactical themes.\nTasks: 1. Design theme taxonomy (20-30 common tactical patterns) 2. Build Theme_extractor service that processes games during ingestion 3. Create LLM prompts for theme detection from move sequences, aligning with examples in docs/PROMPTS.md 4. Add themes JSONB column to games table with GIN index 5. Migrate embedding worker pattern to theme extraction worker 6. Update query pipeline to filter on pre-computed themes (no agent evaluation needed) 7. Optional: Keep agent evaluation for edge cases (“explain why this game matched”) 8. Refresh docs/OPERATIONS.md, docs/TROUBLESHOOTING.md, and docs/GUIDELINES.md with the new ingestion workflow, QA checklist, and documentation expectations\nCheckpoints: - 95% of games have at least one theme tag after processing (summarized in RELEASE_NOTES.md with validation data) - Query with theme filter “queenside_majority” completes in &lt; 100ms (PostgreSQL index scan) - Validation: Manual review of 100 games confirms theme accuracy &gt; 85% - Cost: Theme extraction is one-time per game (vs. per-query agent evaluation); document operational costs in the runbook\nArchitecture Note: This is the production-ready version—fast, deterministic, offline-capable, agent-friendly for debugging.\n\n\n\n\n\n\nMilestone 1: Baseline directory structure, modules, Alcotest smoke test. dune build/dune test green.\nMilestone 2: PGN parser, migrations/seed scripts, chessmate ingest populates Postgres.\nMilestone 3: Embedding jobs persisted, worker loops embedding FENs via OpenAI, vector IDs stored; chessmate fen diagnostic command added.\nMilestone 4: Heuristic query planner, /query API prototype, CLI integration, ECO catalogue (lib/chess/openings), opening metadata persisted.\nCurrent (Milestone 5): Building agent-friendly search architecture—PostgreSQL filters + LLM evaluation for transparent, iterative query refinement.\n\n\n\n\n\nBased on principles from Reasoning Agents Need Bad Search:\n\n\n\nTransparency: Agents build “mental models” of search tools. Complex ranking algorithms are black boxes.\nIterative Refinement: Simple filters allow agents to adjust queries based on initial results.\nPredictable Behavior: Deterministic filters (ECO codes, ratings) are easier to reason about than vector similarity scores.\n\n\n\n\n\nPhase 1 (MVP): Make PostgreSQL the primary tool. Let agents evaluate candidates.\nPhase 2 (Scale): Use Qdrant to narrow candidates, not replace reasoning. Agents still rank final results.\nPhase 3 (Production): Pre-compute what agents would compute at query time. Store it deterministically.\n\n\n\n\n\n\n\n\n\n\n\n\nQuery Type\nBest Architecture\nRationale\n\n\n\n\n“King’s Indian games, White &gt; 2600”\nPhase 1: PostgreSQL + agent\nStructured filters handle 90% of work\n\n\n“Games similar to Kasparov-Topalov 1999”\nPhase 2: Hybrid vector + agent\nPattern matching requires semantic similarity\n\n\n“Queenside pawn majority attacks”\nPhase 3: Pre-annotated themes\nTactical concept, deterministically tag during ingestion\n\n\n\n\n\n\n\n\n\n\n\nMulti-agent collaboration: Specialist agents for openings, tactics, endgames\nInteractive refinement: Agent asks clarifying questions before searching\nExplanation generation: “This game matched because moves 25-30 show…”\nQuery templates: Pre-built searches for common patterns\nUser feedback loop: Learn from which results users actually view\n\n\n\n\n\nCan we replace vector embeddings with LLM-generated feature descriptions?\nHow does agent evaluation quality scale with model size (GPT-4 vs. Claude Opus vs. GPT-5)?\nWhat’s the optimal balance between pre-computation (themes) and runtime reasoning (agents)?\n\n\n\n\n\n\n\nChessmate for Dummies - Complete system explanation\nArchitecture Overview - System design and components\nDeveloper Handbook - Contributing and coding standards\nLLM Prompts - Prompt templates for theme extraction and evaluation",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#objectives-scope",
+    "href": "IMPLEMENTATION_PLAN.html#objectives-scope",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Build a self-hosted chess tutor (“chessmate”) that answers natural-language questions by combining structured metadata, semantic search, and LLM-based reasoning. The architecture evolves through three phases to balance simplicity, scalability, and agent-friendliness:\n\nPhase 1 (MVP): Simple PostgreSQL filters + agent evaluation\nPhase 2 (Scale): Hybrid search with vector pre-filtering + agent ranking\nPhase 3 (Production): Pre-annotated tactical themes + deterministic filters\n\nCore principle: Design transparent, “agent-friendly” search tools that reasoning systems can understand and iteratively refine, rather than opaque ranking algorithms.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#current-status-snapshot",
+    "href": "IMPLEMENTATION_PLAN.html#current-status-snapshot",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Milestone\nStatus\nNotes\n\n\n\n\n1 – Repository scaffolding\n✅ complete\nBaseline structure, Alcotest smoke tests, CLI stubs.\n\n\n2 – Data ingestion foundations\n✅ complete\nReal PGN parser, migrations, chessmate ingest wired to Postgres.\n\n\n3 – Embedding pipeline\n✅ complete\nJobs persisted, embedding worker loops, vector IDs recorded.\n\n\n4 – Hybrid query prototype\n✅ complete\nIntent heuristics, /query API, CLI integration, ECO catalogue.\n\n\n5 – Simple agent-friendly search\n🚧 in progress\nPostgreSQL filters + LLM agent evaluation (Phase 1 MVP).\n\n\n6 – Hybrid vector pre-filtering\n📋 planned\nQdrant narrows candidates, agent ranks final results (Phase 2).\n\n\n7 – Theme pre-annotation\n📋 planned\nTactical themes extracted during ingestion (Phase 3).",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#documentation-alignment-highlights",
+    "href": "IMPLEMENTATION_PLAN.html#documentation-alignment-highlights",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "README.md highlights today’s feature surface: PGN ingestion, the curated hybrid query prototype, and the embedding worker skeleton that still targets OpenAI.\nRELEASE_NOTES.md (v0.4.1) captures the ingest guard and parallel worker improvements while confirming the /query path still ships curated responses—Milestone 6 must close that gap by wiring live Postgres + Qdrant.\ndocs/ARCHITECTURE.md and docs/CHESSMATE_FOR_DUMMIES.md walk through ingestion → embedding → query flows and explicitly flag the current planner’s reliance on curated data.\ndocs/DEVELOPER.md, CLAUDE.md, and AGENTS.md lock in environment, tooling, and style guardrails—milestones should assume opam switch usage, two-space indentation, and open! Base everywhere.\ndocs/OPERATIONS.md and docs/TROUBLESHOOTING.md capture the smoke tests, health checks, and reset procedures that every milestone must keep healthy (e.g., quick Postgres connectivity check, embedding queue draining).\ndocs/PROMPTS.md already curates prompt templates for theme detection, pawn structure work, and future disambiguation—reuse these instead of inventing new agent prompts.\ndocs/GUIDELINES.md reiterates the documentation-first culture; roadmap items should end with updates to the relevant handbook/runbook sections.\n\nImplications for the roadmap\n\nTreat the curated /query responses as a documented limitation; Milestone 6 must close it by wiring the hybrid planner to live stores and updating docs to match.\nBake documentation/runbook edits into each milestone so README, developer, and operations guides stay in sync with behavior changes.\nReuse the shared prompt catalogue when implementing agent evaluation or theme extraction to preserve consistency across tooling and docs.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#phased-architecture-evolution",
+    "href": "IMPLEMENTATION_PLAN.html#phased-architecture-evolution",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Design Philosophy: Transparent, predictable search that agents can reason about.\ngraph LR\n  User[User Query] --&gt; Intent[Intent Parser]\n  Intent --&gt; PG[(PostgreSQL)]\n  PG --&gt; Filter[Structured Filters&lt;br/&gt;ECO, ratings, result]\n  Filter --&gt; Candidates[Overfetch 50 games]\n  Candidates --&gt; Agent[LLM Agent Evaluator]\n  Agent --&gt; Results[Top 5 Results]\nComponents: - PostgreSQL: Deterministic filters (opening, ratings, result) - Intent Parser: Extract structured criteria + tactical keywords - LLM Agent: Reads game moves, evaluates tactical themes, ranks results\nExample Query: “Find King’s Indian games where White executed a queenside majority attack, White ≥ 2500 ELO”\nFlow: 1. Intent parser extracts: opening=E60-E99, white_rating&gt;=2500, theme=queenside_majority 2. PostgreSQL filters: WHERE opening_slug='kings_indian_defense' AND white_rating&gt;=2500 → 50 candidates 3. Agent evaluates: Reads move sequences, identifies queenside pawn majority patterns → ranks top 5\nPros: Simple, cheap, transparent to agents, good for MVP (&lt;100K games)\nCons: Agent evaluation costs tokens, slower for large candidate sets\n\n\n\n\nDesign Philosophy: Use vector search as a middle layer to narrow candidates efficiently, then let agents reason about final selections.\ngraph LR\n  User[User Query] --&gt; Intent[Intent Parser]\n  Intent --&gt; PG[(PostgreSQL)]\n  PG --&gt; Filter1[1M games → 10K&lt;br/&gt;ECO + ratings]\n  Filter1 --&gt; Qdrant[(Qdrant)]\n  Qdrant --&gt; Filter2[10K → 100 positions&lt;br/&gt;vector similarity]\n  Filter2 --&gt; Agent[Agent Ranking]\n  Agent --&gt; Results[Top 5 Results]\nComponents: - PostgreSQL: Narrow by structured filters (10x reduction) - Qdrant: Semantic position similarity (100x reduction) - Agent: Final ranking and validation (100 → 5 results)\nWhen to Use: Database &gt; 100K games, unannotated PGN files, position-level pattern queries\nPros: Scales to millions of games, finds patterns without annotations, position-level granularity\nCons: More complex infrastructure, embedding costs, less transparent to agents\n\n\n\n\nDesign Philosophy: Pre-compute tactical themes during ingestion using LLM/rules, then use deterministic filters.\ngraph LR\n  Ingestion[PGN Ingestion] --&gt; Themes[Theme Extraction&lt;br/&gt;LLM/Rules]\n  Themes --&gt; PG[(PostgreSQL&lt;br/&gt;+ theme tags)]\n  User[User Query] --&gt; Intent[Intent Parser]\n  Intent --&gt; PG\n  PG --&gt; Filter[Deterministic Filters&lt;br/&gt;ECO + ratings + themes]\n  Filter --&gt; Agent[Agent Refinement&lt;br/&gt;optional]\n  Agent --&gt; Results[Top 5 Results]\nComponents: - Theme Extractor: Identifies tactical patterns during ingestion (one-time cost) - PostgreSQL: Stores pre-computed theme tags (e.g., themes=['queenside_majority', 'king_attack']) - Query: Deterministic filtering on theme tags\nExample Tags: isolated_pawn, bishop_pair, rook_endgame, sacrifice, discovered_attack, pawn_storm\nPros: Fast queries, transparent filters, no agent evaluation needed for most queries, works offline\nCons: Requires upfront theme extraction, may miss novel patterns",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#data-model-plan",
+    "href": "IMPLEMENTATION_PLAN.html#data-model-plan",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "games: PGN text, ECO, opening slug, event/site/date, players, ratings, result, themes (JSONB array)\nplayers: name, aliases/FIDE IDs, rating peaks\npositions: game_id, ply, FEN, SAN, eval, vector_id, tactical_features (JSONB), timestamps\nembedding_jobs: status machine (pending, in_progress, completed, failed), FEN payload\nthemes (Phase 3): Tactical theme taxonomy with definitions for LLM extraction\n\n\n\n\n\nB-tree: white_rating, black_rating, eco_code, opening_slug, played_on\nGIN: themes (JSONB array), tactical_features\nFull-text: pgn (for keyword search in annotations)\n\n\n\n\n{\n  \"game_id\": 42,\n  \"white_name\": \"Kasparov\",\n  \"black_name\": \"Karpov\",\n  \"white_elo\": 2800,\n  \"black_elo\": 2750,\n  \"opening_slug\": \"kings_indian_defense\",\n  \"eco_code\": \"E97\",\n  \"ply\": 25,\n  \"themes\": [\"queenside_majority\", \"king_attack\"],\n  \"phase\": \"middlegame\"\n}",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#library-structure-lib",
+    "href": "IMPLEMENTATION_PLAN.html#library-structure-lib",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "chess/: PGN parser, game metadata, FEN engine, ECO catalogue, theme taxonomy\nstorage/: Repo_postgres, queue helpers, Qdrant adapter (Phase 2)\nembedding/: OpenAI client, caching (planned), payload builders\nquery/: intent heuristics, agent evaluator, hybrid planner, result formatter\nagents/: LLM client wrappers, prompt templates for theme detection and result ranking\ncli/: ingest/query commands, shared env helpers",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#services-workflows",
+    "href": "IMPLEMENTATION_PLAN.html#services-workflows",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "sequenceDiagram\n  participant User as User/CLI\n  participant API as Query API\n  participant Intent as Query Intent\n  participant PG as PostgreSQL\n  participant Agent as LLM Agent\n\n  User-&gt;&gt;API: POST /query \"Find KID games with queenside majority\"\n  API-&gt;&gt;Intent: analyse(question)\n  Intent-&gt;&gt;PG: SELECT * WHERE opening='E60-E99' LIMIT 50\n  PG--&gt;&gt;Intent: 50 candidate games\n  Intent-&gt;&gt;Agent: evaluate_tactics(candidates, theme='queenside_majority')\n  Agent--&gt;&gt;Intent: ranked results with explanations\n  Intent--&gt;&gt;API: top 5 games + agent reasoning\n  API--&gt;&gt;User: JSON response\n\n\n\nsequenceDiagram\n  participant User as User/CLI\n  participant API as Query API\n  participant Intent as Query Intent\n  participant PG as PostgreSQL\n  participant Qdrant as Qdrant\n  participant Agent as LLM Agent\n\n  User-&gt;&gt;API: POST /query \"Similar to Kasparov-Topalov 1999\"\n  API-&gt;&gt;Intent: analyse(question)\n  Intent-&gt;&gt;PG: SELECT * WHERE white_rating&gt;2600 (10K games)\n  PG--&gt;&gt;Intent: 10K candidates\n  Intent-&gt;&gt;Qdrant: vector_search(position_embed, limit=100)\n  Qdrant--&gt;&gt;Intent: 100 similar positions\n  Intent-&gt;&gt;Agent: rank_and_explain(positions)\n  Agent--&gt;&gt;Intent: top 5 with similarity reasoning\n  Intent--&gt;&gt;API: results + scores\n  API--&gt;&gt;User: JSON response\n\n\n\nsequenceDiagram\n  participant CLI as chessmate ingest\n  participant Parser as PGN Parser\n  participant Themes as Theme Extractor\n  participant Agent as LLM Theme Detector\n  participant PG as PostgreSQL\n\n  CLI-&gt;&gt;Parser: parse(game.pgn)\n  Parser--&gt;&gt;CLI: moves + metadata\n  CLI-&gt;&gt;Themes: extract_themes(moves)\n  Themes-&gt;&gt;Agent: analyze_tactics(positions)\n  Agent--&gt;&gt;Themes: themes=['queenside_majority', 'rook_endgame']\n  Themes--&gt;&gt;CLI: enriched metadata\n  CLI-&gt;&gt;PG: INSERT game + themes",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#testing-strategy",
+    "href": "IMPLEMENTATION_PLAN.html#testing-strategy",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Unit tests (Alcotest): PGN parser, metadata extraction, query intent heuristics, theme taxonomy\nAgent evaluation tests: Prompt regression suite, theme detection accuracy metrics\nIntegration tests (Phase 2): Dockerized Postgres + Qdrant for ingest/query pipelines\nRegression suite: Curated NL queries with expected results\nCI (GitHub Actions): dune build, dune runtest on pushes/PRs",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#deployment-operations",
+    "href": "IMPLEMENTATION_PLAN.html#deployment-operations",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Docker Compose: Postgres + Qdrant (optional in Phase 1), volumes under data/\nMigrations: ./scripts/migrate.sh (idempotent)\nEnvironment: DATABASE_URL, CHESSMATE_API_URL, OPENAI_API_KEY\n\n\n\n\n\nContainerized API + worker services\nTheme extraction: Background job queue (similar to embedding worker)\nCaching: Redis for frequent queries\nObservability: Structured logs, Prometheus metrics, health endpoints\nSecurity: TLS, API auth, least-privilege DB roles",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#milestones-checkpoints",
+    "href": "IMPLEMENTATION_PLAN.html#milestones-checkpoints",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Objective: Establish project skeleton, build system, initial tests.\nTasks: Scaffold modules, add Alcotest smoke tests, set up CLI stubs, ensure dune build.\nCheckpoints: dune build, dune fmt --check, dune test pass; directory layout matches plan.\n\n\n\n\nObjective: Parse PGNs, persist metadata, expose schema migrations.\nTasks: Real PGN parser, migrations/seeds, build chessmate ingest.\nCheckpoints: Ingest sample PGN → Postgres populated; SELECT count(*) FROM positions matches expectation.\n\n\n\n\nObjective: Generate embeddings, sync Qdrant with Postgres (foundation for Phase 2).\nTasks: Implement embedding client (retries/throttle), payload builder, embedding_worker service.\nCheckpoints: Docker stack brings up Postgres/Qdrant; worker inserts vectors; Postgres rows receive vector_id.\n\n\n\n\nObjective: Answer NL questions via heuristic intent parsing.\nTasks: Upgrade Query_intent heuristics (openings, ratings, keywords), add /query Opium API, wire chessmate query CLI, seed ECO catalogue.\nCheckpoints: CLI returns responses with filters; unit tests cover intent edge cases; docs updated.\n\n\n\n\nObjective: Implement Phase 1 MVP with transparent PostgreSQL filters plus an OpenAI GPT‑5 agent that ranks and explains results. All agent calls will use GPT‑5 (Responses API) and the new reasoning.effort control.\nTasks: 1. LLM Client & Config - Add lib/agents/gpt5_client.ml/.mli wrapping OpenAI GPT‑5 with env-driven settings: AGENT_API_KEY, AGENT_MODEL (default gpt-5), reasoning_effort (minimal|low|medium|high default medium), verbosity, concurrency limit, retry/backoff. - Remove temperature handling; expose knobs for reasoning.effort and verbosity as recommended in the GPT‑5 docs. 2. Prompt & Response Schema - Reuse/extend motifs in docs/PROMPTS.md to craft prompts that summarise filters, send truncated PGNs, and request JSON output containing score, themes, and explanation. - Implement robust response parsing with fallback when GPT‑5 returns malformed JSON. 3. Data Fetching - Add Repo_postgres.fetch_games_with_pgn ~ids and, if needed, Repo_postgres.fetch_positions ~ids to supply the agent with sufficient context (limit to 50 candidates per query). 4. Pipeline Integration - Extend Hybrid_executor (or introduce Agent_executor) to: fetch metadata → fetch PGNs → evaluate with GPT‑5 → combine heuristic score and agent score (configurable weights) → include agent explanation/effort metadata in results. - Run agent evaluations concurrently with a bounded worker pool to respect rate limits. 5. Cost & Telemetry - Track tokens and latency per call; log structured telemetry (JSON) including reasoning_effort, tokens, cost estimates. - Add optional caching (e.g., SQLite file or Redis key) keyed by plan+game to avoid re-billing identical prompts. 6. Testing - Unit tests for prompt generation and JSON response parsing (using canned GPT‑5 outputs). - Integration tests with a stubbed GPT‑5 client to validate the full Postgres → agent → response loop. - Update troubleshooting smoke test to cover agent-enabled queries and fallback behaviour. 7. Documentation & Runbooks - Update README, Operations, Troubleshooting with agent setup, reasoning.effort guidance, cost monitoring, and recovery steps when GPT‑5 is unavailable.\nCheckpoints: - Query “Find queenside majority attacks in King’s Indian” returns agent-ranked results with explanations (reasoning.effort tuned to high). - End-to-end latency &lt; 10 seconds for 50 candidates with reasoning.effort=medium; document trade-offs for low/high. - Structured logs show tokens, effort level, and per-query cost; metrics captured in Ops runbook. - Integration tests cover agent path; documentation reflects new workflow and failure modes.\nArchitecture Note: This milestone keeps reasoning transparent—PostgreSQL filters remain deterministic while GPT‑5 provides ranked insights with controllable depth via reasoning.effort.\n\n\n\n\nObjective: Implement Phase 2 for scale—use Qdrant as middle layer, agents for final ranking.\nTasks: 1. Wire live Qdrant integration into hybrid planner 2. Implement three-stage pipeline: PostgreSQL (10K→1K) → Qdrant (1K→100) → Agent (100→5) 3. Add configuration for vector weight vs. agent weight in final scoring 4. Build evaluation harness comparing Phase 1 (agent-only) vs. Phase 2 (hybrid) 5. Optimize Qdrant payload filters to mirror PostgreSQL capabilities 6. Instrument with metrics: query latency, candidate counts per stage, agent evaluation cost 7. Revise README, docs/ARCHITECTURE.md, and docs/CHESSMATE_FOR_DUMMIES.md to describe the live hybrid wiring and update troubleshooting guidance for Qdrant failures\nCheckpoints: - Query against 1M+ positions completes in &lt; 5 seconds (documented in docs/OPERATIONS.md as the new performance target) - Evaluation report shows recall/precision vs. Phase 1 baseline and is summarized in RELEASE_NOTES.md - Qdrant filters reduce candidates 100x before agent evaluation - Cost per query &lt; $0.10 (OpenAI embeddings + agent evaluation)\nTrade-off: More complex infrastructure (Qdrant required) but scales to millions of games.\n\n\n\n\nObjective: Implement Phase 3 production architecture with pre-computed tactical themes.\nTasks: 1. Design theme taxonomy (20-30 common tactical patterns) 2. Build Theme_extractor service that processes games during ingestion 3. Create LLM prompts for theme detection from move sequences, aligning with examples in docs/PROMPTS.md 4. Add themes JSONB column to games table with GIN index 5. Migrate embedding worker pattern to theme extraction worker 6. Update query pipeline to filter on pre-computed themes (no agent evaluation needed) 7. Optional: Keep agent evaluation for edge cases (“explain why this game matched”) 8. Refresh docs/OPERATIONS.md, docs/TROUBLESHOOTING.md, and docs/GUIDELINES.md with the new ingestion workflow, QA checklist, and documentation expectations\nCheckpoints: - 95% of games have at least one theme tag after processing (summarized in RELEASE_NOTES.md with validation data) - Query with theme filter “queenside_majority” completes in &lt; 100ms (PostgreSQL index scan) - Validation: Manual review of 100 games confirms theme accuracy &gt; 85% - Cost: Theme extraction is one-time per game (vs. per-query agent evaluation); document operational costs in the runbook\nArchitecture Note: This is the production-ready version—fast, deterministic, offline-capable, agent-friendly for debugging.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#progress-log",
+    "href": "IMPLEMENTATION_PLAN.html#progress-log",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Milestone 1: Baseline directory structure, modules, Alcotest smoke test. dune build/dune test green.\nMilestone 2: PGN parser, migrations/seed scripts, chessmate ingest populates Postgres.\nMilestone 3: Embedding jobs persisted, worker loops embedding FENs via OpenAI, vector IDs stored; chessmate fen diagnostic command added.\nMilestone 4: Heuristic query planner, /query API prototype, CLI integration, ECO catalogue (lib/chess/openings), opening metadata persisted.\nCurrent (Milestone 5): Building agent-friendly search architecture—PostgreSQL filters + LLM evaluation for transparent, iterative query refinement.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#design-philosophy-agent-friendly-search",
+    "href": "IMPLEMENTATION_PLAN.html#design-philosophy-agent-friendly-search",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Based on principles from Reasoning Agents Need Bad Search:\n\n\n\nTransparency: Agents build “mental models” of search tools. Complex ranking algorithms are black boxes.\nIterative Refinement: Simple filters allow agents to adjust queries based on initial results.\nPredictable Behavior: Deterministic filters (ECO codes, ratings) are easier to reason about than vector similarity scores.\n\n\n\n\n\nPhase 1 (MVP): Make PostgreSQL the primary tool. Let agents evaluate candidates.\nPhase 2 (Scale): Use Qdrant to narrow candidates, not replace reasoning. Agents still rank final results.\nPhase 3 (Production): Pre-compute what agents would compute at query time. Store it deterministically.\n\n\n\n\n\n\n\n\n\n\n\n\nQuery Type\nBest Architecture\nRationale\n\n\n\n\n“King’s Indian games, White &gt; 2600”\nPhase 1: PostgreSQL + agent\nStructured filters handle 90% of work\n\n\n“Games similar to Kasparov-Topalov 1999”\nPhase 2: Hybrid vector + agent\nPattern matching requires semantic similarity\n\n\n“Queenside pawn majority attacks”\nPhase 3: Pre-annotated themes\nTactical concept, deterministically tag during ingestion",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#future-enhancements",
+    "href": "IMPLEMENTATION_PLAN.html#future-enhancements",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Multi-agent collaboration: Specialist agents for openings, tactics, endgames\nInteractive refinement: Agent asks clarifying questions before searching\nExplanation generation: “This game matched because moves 25-30 show…”\nQuery templates: Pre-built searches for common patterns\nUser feedback loop: Learn from which results users actually view\n\n\n\n\n\nCan we replace vector embeddings with LLM-generated feature descriptions?\nHow does agent evaluation quality scale with model size (GPT-4 vs. Claude Opus vs. GPT-5)?\nWhat’s the optimal balance between pre-computation (themes) and runtime reasoning (agents)?",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "IMPLEMENTATION_PLAN.html#related-documentation",
+    "href": "IMPLEMENTATION_PLAN.html#related-documentation",
+    "title": "Implementation Plan",
+    "section": "",
+    "text": "Chessmate for Dummies - Complete system explanation\nArchitecture Overview - System design and components\nDeveloper Handbook - Contributing and coding standards\nLLM Prompts - Prompt templates for theme extraction and evaluation",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Implementation Plan"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Chessmate Documentation",
+    "section": "",
+    "text": "Chessmate is a self-hosted chess tutor that ingests PGNs, enriches metadata, and surfaces games through a hybrid of structured filters and semantic search. This site curates the living documentation set that guides contributors, operators, and agents.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Chessmate Documentation"
+    ]
+  },
+  {
+    "objectID": "index.html#start-here",
+    "href": "index.html#start-here",
+    "title": "Chessmate Documentation",
+    "section": "Start Here",
+    "text": "Start Here\n\nChessmate for Dummies: end-to-end walk through of ingestion, embedding, and query flows.\nImplementation Plan: phased roadmap and milestone status.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Chessmate Documentation"
+    ]
+  },
+  {
+    "objectID": "index.html#architecture-operations",
+    "href": "index.html#architecture-operations",
+    "title": "Chessmate Documentation",
+    "section": "Architecture & Operations",
+    "text": "Architecture & Operations\n\nArchitecture Overview: system goals, component responsibilities, and diagrams.\nOperations Playbook: environment bootstrap, monitoring, and runbooks.\nTroubleshooting: smoke tests and common fixes.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Chessmate Documentation"
+    ]
+  },
+  {
+    "objectID": "index.html#team-practices",
+    "href": "index.html#team-practices",
+    "title": "Chessmate Documentation",
+    "section": "Team Practices",
+    "text": "Team Practices\n\nDeveloper Handbook: onboarding, tooling, and workflows.\nCollaboration & Quality Guidelines: communication and coding standards.\nLLM Prompts: reusable prompt templates for chess analysis.\n\nExplore the sidebar for the full contents. Contributions to documentation follow the same review discipline as code—submit pull requests with context, testing notes, and links to related issues.",
+    "crumbs": [
+      "Home",
+      "Overview",
+      "Chessmate Documentation"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html",
+    "href": "PROMPTS.html",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "This document contains useful prompts for using large language models (GPT-4, GPT-5, Claude, etc.) to perform chess-related transformations and analysis tasks.\n\n\n\n\n\nExtract pawn structure from a complete chess position (FEN string) by removing all pieces except pawns. This is useful for:\n\nAnalyzing pawn structure patterns independently of piece placement\nComparing pawn formations across different games\nGenerating training data for pawn structure embeddings\nIdentifying common pawn structures (isolated pawns, pawn chains, passed pawns, etc.)\n\n\n\n\nStrip all pieces besides the pawns from '&lt;FEN_STRING&gt;' and show me the resulting FEN.\n\n\n\nInput:\nStrip all pieces besides the pawns from 'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1' and show me the resulting FEN.\nExpected Output:\n8/pppppppp/8/8/3P4/8/PPP1PPPP/8 b - d3 0 1\nExplanation: - rnbqkbnr → 8 (rank 8: all pieces removed, 8 empty squares) - pppppppp → pppppppp (rank 7: black pawns remain) - Rank 6-5: empty (no pawns) - 3P4 → 3P4 (rank 4: white pawn on d4) - Rank 3: empty - PPP1PPPP → PPP1PPPP (rank 2: white pawns) - RNBQKBNR → 8 (rank 1: all pieces removed) - Castling rights cleared (KQkq → -) since kings are removed - En passant square retained (d3)\n\n\n\nThis technique can be used to:\n\nGenerate pawn structure embeddings: Create separate embeddings for pawn structures to enhance search for “games with similar pawn structures”\nAugment position metadata: Store pawn structure FEN alongside full position FEN in the database\nEnable pawn-specific queries: Search for “French Defense with isolated queen’s pawn” by matching pawn structure patterns\nPreprocessing pipeline: Add pawn extraction step in lib/chess/fen.ml or during ingestion\n\n\n\n\nTo integrate this into Chessmate, you could:\n(* lib/chess/fen.ml *)\n\nlet strip_pieces_except_pawns fen =\n  (* Parse FEN placement string *)\n  let parts = String.split fen ~on:' ' in\n  match parts with\n  | placement :: rest -&gt;\n      (* Strip non-pawn pieces from each rank *)\n      let pawn_only_placement =\n        placement\n        |&gt; String.to_list\n        |&gt; List.map ~f:(fun ch -&gt;\n             match ch with\n             | 'p' | 'P' | '/' -&gt; ch  (* Keep pawns and rank separators *)\n             | _ when Char.is_digit ch -&gt; ch  (* Keep empty square counts *)\n             | _ -&gt; '1')  (* Replace pieces with 1 empty square *)\n        |&gt; String.of_char_list\n        |&gt; compress_empty_squares  (* Merge adjacent digits *)\n      in\n      (* Reconstruct FEN with pawn-only placement *)\n      (* Clear castling rights since kings are removed *)\n      String.concat ~sep:\" \" (pawn_only_placement :: rest |&gt; update_castling)\n  | _ -&gt; fen\n\nlet compress_empty_squares placement =\n  (* Helper to merge '1' '1' '1' → '3' *)\n  ...\n\n\n\n\n\n\n\nPurpose: Classify opening positions by ECO code when header information is missing.\nPrompt:\nAnalyze this chess position (FEN) and identify the opening's ECO code: '&lt;FEN_STRING&gt;'. Provide the ECO code (e.g., E97) and opening name.\n\n\n\nPurpose: Generate natural language descriptions of positions for embedding or annotation.\nPrompt:\nDescribe the following chess position in 2-3 sentences, focusing on pawn structure, piece activity, and strategic themes: '&lt;FEN_STRING&gt;'.\n\n\n\nPurpose: Identify tactical motifs present in a position.\nPrompt:\nAnalyze this chess position (FEN) for tactical themes such as pins, forks, skewers, discovered attacks, or sacrifices: '&lt;FEN_STRING&gt;'. List all identified themes.\n\n\n\nPurpose: Determine whether a position is opening, middlegame, or endgame.\nPrompt:\nGiven this chess position (FEN): '&lt;FEN_STRING&gt;', classify the game phase as opening, middlegame, or endgame. Consider piece count, king safety, and pawn structure.\nIntegration Note: This could augment lib/chess/position_features.ml for automatic phase detection.\n\n\n\n\n\n\nValidation: Always validate LLM output against known positions before integrating into production\nCaching: Cache LLM-generated analysis to avoid redundant API calls\nBatch Processing: Process multiple positions in a single API call when possible\nFallback Logic: Implement deterministic fallbacks for critical features (e.g., phase detection by material count)\nCost Management: Use cheaper models (GPT-4o-mini, Claude Haiku) for bulk processing\n\n\n\n\n\nGPT-5 demonstrates strong chess knowledge and asks for clarification when faced with ambiguous opening names. For example:\nUser Query:\nShow me the ECO ranges for the following chess openings: King's Indian Defense, Tarrasch, QGD\nGPT-5 Response:\nCould you please clarify what you mean by \"Tarrasch\"? Are you referring to:\n1. The Tarrasch Defense (a line in the Queen's Gambit Declined),\n2. The Tarrasch Variation of the French Defense,\n3. Or another opening entirely?\n\nLet me know so I can give you the correct ECO code ranges.\nKey Observations:\n\nContextual Awareness: GPT-5 recognizes that “Tarrasch” is ambiguous without further context\nDomain Knowledge: Knows specific variations (Tarrasch Defense in QGD vs. Tarrasch in French)\nUser Experience: Asks for clarification rather than guessing, preventing incorrect information\nProfessional Tone: Provides numbered options for easy selection\n\nImplications for Chessmate:\n\nGPT-5 can be reliably used for opening classification and ECO code mapping\nConsider using GPT-5 for query expansion: “Show me Tarrasch games” → prompt user to disambiguate\nCan assist with cleaning ambiguous opening names in ingested PGN files\nSuitable for augmenting the opening catalogue in lib/chess/openings.ml with additional synonyms\n\nRecommendation: When building LLM-assisted features, leverage GPT-5’s ability to handle ambiguity and provide clarifying questions rather than implementing complex disambiguation logic manually.\n\n\n\n\nPotential LLM-assisted features for Chessmate:\n\nAutomatic annotation generation: “Kasparov sacrifices the exchange for long-term compensation…”\nQuery expansion: User asks “attacking games” → LLM expands to themes: king_attack, sacrifice, tactical\nOpening repertoire suggestions: “Based on your database, recommend underplayed lines in the Najdorf”\nPosition comparison: “How similar is this Sicilian to the famous Kasparov-Topalov 1999 game?”\n\n\n\n\n\n\nChessmate for Dummies - Complete ingestion and search flow\nArchitecture - System design and components\nDeveloper Handbook - Contributing and coding standards",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html#pawn-structure-extraction",
+    "href": "PROMPTS.html#pawn-structure-extraction",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "Extract pawn structure from a complete chess position (FEN string) by removing all pieces except pawns. This is useful for:\n\nAnalyzing pawn structure patterns independently of piece placement\nComparing pawn formations across different games\nGenerating training data for pawn structure embeddings\nIdentifying common pawn structures (isolated pawns, pawn chains, passed pawns, etc.)\n\n\n\n\nStrip all pieces besides the pawns from '&lt;FEN_STRING&gt;' and show me the resulting FEN.\n\n\n\nInput:\nStrip all pieces besides the pawns from 'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1' and show me the resulting FEN.\nExpected Output:\n8/pppppppp/8/8/3P4/8/PPP1PPPP/8 b - d3 0 1\nExplanation: - rnbqkbnr → 8 (rank 8: all pieces removed, 8 empty squares) - pppppppp → pppppppp (rank 7: black pawns remain) - Rank 6-5: empty (no pawns) - 3P4 → 3P4 (rank 4: white pawn on d4) - Rank 3: empty - PPP1PPPP → PPP1PPPP (rank 2: white pawns) - RNBQKBNR → 8 (rank 1: all pieces removed) - Castling rights cleared (KQkq → -) since kings are removed - En passant square retained (d3)\n\n\n\nThis technique can be used to:\n\nGenerate pawn structure embeddings: Create separate embeddings for pawn structures to enhance search for “games with similar pawn structures”\nAugment position metadata: Store pawn structure FEN alongside full position FEN in the database\nEnable pawn-specific queries: Search for “French Defense with isolated queen’s pawn” by matching pawn structure patterns\nPreprocessing pipeline: Add pawn extraction step in lib/chess/fen.ml or during ingestion\n\n\n\n\nTo integrate this into Chessmate, you could:\n(* lib/chess/fen.ml *)\n\nlet strip_pieces_except_pawns fen =\n  (* Parse FEN placement string *)\n  let parts = String.split fen ~on:' ' in\n  match parts with\n  | placement :: rest -&gt;\n      (* Strip non-pawn pieces from each rank *)\n      let pawn_only_placement =\n        placement\n        |&gt; String.to_list\n        |&gt; List.map ~f:(fun ch -&gt;\n             match ch with\n             | 'p' | 'P' | '/' -&gt; ch  (* Keep pawns and rank separators *)\n             | _ when Char.is_digit ch -&gt; ch  (* Keep empty square counts *)\n             | _ -&gt; '1')  (* Replace pieces with 1 empty square *)\n        |&gt; String.of_char_list\n        |&gt; compress_empty_squares  (* Merge adjacent digits *)\n      in\n      (* Reconstruct FEN with pawn-only placement *)\n      (* Clear castling rights since kings are removed *)\n      String.concat ~sep:\" \" (pawn_only_placement :: rest |&gt; update_castling)\n  | _ -&gt; fen\n\nlet compress_empty_squares placement =\n  (* Helper to merge '1' '1' '1' → '3' *)\n  ...",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html#other-useful-chess-prompts",
+    "href": "PROMPTS.html#other-useful-chess-prompts",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "Purpose: Classify opening positions by ECO code when header information is missing.\nPrompt:\nAnalyze this chess position (FEN) and identify the opening's ECO code: '&lt;FEN_STRING&gt;'. Provide the ECO code (e.g., E97) and opening name.\n\n\n\nPurpose: Generate natural language descriptions of positions for embedding or annotation.\nPrompt:\nDescribe the following chess position in 2-3 sentences, focusing on pawn structure, piece activity, and strategic themes: '&lt;FEN_STRING&gt;'.\n\n\n\nPurpose: Identify tactical motifs present in a position.\nPrompt:\nAnalyze this chess position (FEN) for tactical themes such as pins, forks, skewers, discovered attacks, or sacrifices: '&lt;FEN_STRING&gt;'. List all identified themes.\n\n\n\nPurpose: Determine whether a position is opening, middlegame, or endgame.\nPrompt:\nGiven this chess position (FEN): '&lt;FEN_STRING&gt;', classify the game phase as opening, middlegame, or endgame. Consider piece count, king safety, and pawn structure.\nIntegration Note: This could augment lib/chess/position_features.ml for automatic phase detection.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html#best-practices",
+    "href": "PROMPTS.html#best-practices",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "Validation: Always validate LLM output against known positions before integrating into production\nCaching: Cache LLM-generated analysis to avoid redundant API calls\nBatch Processing: Process multiple positions in a single API call when possible\nFallback Logic: Implement deterministic fallbacks for critical features (e.g., phase detection by material count)\nCost Management: Use cheaper models (GPT-4o-mini, Claude Haiku) for bulk processing",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html#gpt-5-chess-understanding",
+    "href": "PROMPTS.html#gpt-5-chess-understanding",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "GPT-5 demonstrates strong chess knowledge and asks for clarification when faced with ambiguous opening names. For example:\nUser Query:\nShow me the ECO ranges for the following chess openings: King's Indian Defense, Tarrasch, QGD\nGPT-5 Response:\nCould you please clarify what you mean by \"Tarrasch\"? Are you referring to:\n1. The Tarrasch Defense (a line in the Queen's Gambit Declined),\n2. The Tarrasch Variation of the French Defense,\n3. Or another opening entirely?\n\nLet me know so I can give you the correct ECO code ranges.\nKey Observations:\n\nContextual Awareness: GPT-5 recognizes that “Tarrasch” is ambiguous without further context\nDomain Knowledge: Knows specific variations (Tarrasch Defense in QGD vs. Tarrasch in French)\nUser Experience: Asks for clarification rather than guessing, preventing incorrect information\nProfessional Tone: Provides numbered options for easy selection\n\nImplications for Chessmate:\n\nGPT-5 can be reliably used for opening classification and ECO code mapping\nConsider using GPT-5 for query expansion: “Show me Tarrasch games” → prompt user to disambiguate\nCan assist with cleaning ambiguous opening names in ingested PGN files\nSuitable for augmenting the opening catalogue in lib/chess/openings.ml with additional synonyms\n\nRecommendation: When building LLM-assisted features, leverage GPT-5’s ability to handle ambiguity and provide clarifying questions rather than implementing complex disambiguation logic manually.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html#future-enhancements",
+    "href": "PROMPTS.html#future-enhancements",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "Potential LLM-assisted features for Chessmate:\n\nAutomatic annotation generation: “Kasparov sacrifices the exchange for long-term compensation…”\nQuery expansion: User asks “attacking games” → LLM expands to themes: king_attack, sacrifice, tactical\nOpening repertoire suggestions: “Based on your database, recommend underplayed lines in the Najdorf”\nPosition comparison: “How similar is this Sicilian to the famous Kasparov-Topalov 1999 game?”",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "PROMPTS.html#related-documentation",
+    "href": "PROMPTS.html#related-documentation",
+    "title": "LLM Prompts for Chess Analysis",
+    "section": "",
+    "text": "Chessmate for Dummies - Complete ingestion and search flow\nArchitecture - System design and components\nDeveloper Handbook - Contributing and coding standards",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "LLM Prompts for Chess Analysis"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html",
+    "href": "DEVELOPER.html",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Copy .env.sample to .env and update the connection strings/API keys you need locally.\nInstall OCaml 5.1.x and opam; create the local switch inside the repo (lives under _opam/) and load it per shell with eval $(opam env --set-switch).\nInstall dependencies: opam install . --deps-only --with-test.\nBuild/test baseline: dune build, dune runtest, dune fmt --check.\nStart backing services when needed: docker compose up -d postgres qdrant (first run downloads images).\nRun migrations with a fresh database: export DATABASE_URL=postgres://chess:chess@localhost:5433/chessmate && ./scripts/migrate.sh.\nLaunch the prototype query API in its own shell: dune exec chessmate_api -- --port 8080.\nEnsure psql, Docker (with Compose), and curl are available on your PATH; set OPENAI_API_KEY if you intend to exercise the embedding worker and AGENT_API_KEY if you plan to test GPT-5 agent ranking.\n\n\n\n\n\nlib/chess/: PGN/FEN parsing, metadata helpers, ECO catalogue, FEN tooling.\nlib/storage/, lib/embedding/, lib/query/, lib/cli/: persistence, embedding clients, query planner, shared CLI modules.\nbin/: CLI entry points (chessmate).\nservices/: long-running executables (embedding worker, query API prototype).\nscripts/: migrations/seeding helpers.\ndocs/: architecture, operations, developer, contribution guides.\ntest/: Alcotest suites + fixtures (test/fixtures/).\ndata/: Docker volumes (data/postgres, data/qdrant).\n\n\n\n\n# bring services up\nexport DATABASE_URL=postgres://chess:chess@localhost:5433/chessmate\nCHESSMATE_API_URL=http://localhost:8080\n\ndocker compose up -d postgres qdrant\n./scripts/migrate.sh\n\nDrop/reset by removing data/postgres and re-running migrations (the script is idempotent).\nInspect data with psql \"$DATABASE_URL\" -c 'SELECT id, opening_slug FROM games;'.\n\n\n\n\n\nFormatting: dune fmt (run before commits; CI enforces dune fmt --check).\nUnit tests: dune build && dune runtest.\nWatch mode: WATCH=1 dune runtest (re-runs changed suites).\nStream test output: dune runtest --no-buffer (useful for verbose parsers).\nIntegration passes: ensure Docker services are running, then dune runtest --force.\nBefore opening a PR: capture dune build && dune runtest output in the PR template.\n\n\n\n# Ingest a PGN (requires DATABASE_URL). Adjust or disable the queue guard via\n# CHESSMATE_MAX_PENDING_EMBEDDINGS before bulk imports.\nchessmate ingest test/fixtures/extended_sample_game.pgn\n\n# Query prototype API (ensure server runs on localhost:8080)\nchessmate query \"Show French Defense draws with queenside majority\"\n\n# Embedding worker loop (replace OPENAI_API_KEY for real runs)\nOPENAI_API_KEY=dummy chessmate embedding-worker --workers 4 --poll-sleep 1.0\n\n# Watch queue depth & throughput every two minutes\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/embedding_metrics.sh --interval 120\n\n# Prune stale pending jobs after re-ingest\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/prune_pending_jobs.sh 2000\n\n# FEN diagnostics\nchessmate fen test/fixtures/sample_game.pgn | head -n 5\n\n# Enable GPT-5 agent ranking (optional)\nAGENT_API_KEY=test-key AGENT_REASONING_EFFORT=low AGENT_CACHE_CAPACITY=200 \\\n  chessmate query \"Explain Najdorf exchange sacrifices\"\n\n\n\n\nKeep CHESSMATE_MAX_PENDING_EMBEDDINGS conservative in development (≤ 400k) so runaway queues fail fast.\nMetrics script cadence: 60–120 seconds works well for 5–10 worker loops; shorten to 30 seconds while tuning.\nWhen throughput plateaus, lower --workers or increase --poll-sleep before OpenAI throttling kicks in.\nAlways prune pending jobs with populated vector_ids before re-ingesting the same PGN to avoid duplicates.\nAgent evaluations are optional; unset AGENT_API_KEY when running tests offline or use AGENT_REASONING_EFFORT=low to reduce cost/latency during development.\nKeep CHESSMATE_MAX_PENDING_EMBEDDINGS conservative in development (≤ 400k) so runaway queues fail fast.\nMetrics script cadence: 60–120 seconds works well for 5–10 worker loops; shorten to 30 seconds while tuning.\nWhen throughput plateaus, lower --workers or increase --poll-sleep before OpenAI throttling kicks in.\nAlways prune pending jobs with populated vector_ids before re-ingesting the same PGN to avoid duplicates.\n\n\n\n\n# let raw = Stdio.In_channel.read_all \"game.pgn\";;\nval raw : string = \"...\"\n# match Chessmate.Pgn_parser.parse raw with\n  | Ok game -&gt; List.take game.moves 3\n  | Error err -&gt; raise_s [%sexp \"parse failure\", (err : Error.t)]\n;;\n- : Chessmate.Pgn_parser.move list = [ ... ]\n\n# match Chessmate.Pgn_parser.parse_file \"game.pgn\" with\n  | Ok game -&gt; Chessmate.Game_metadata.of_headers game.headers\n  | Error err -&gt; raise_s [%sexp \"parse-file failure\", (err : Error.t)]\n;;\n- : Chessmate.Game_metadata.t = { ... }\n\n\n\n\n\nAdopt open! Base; expose only required signatures via .mli.\nKeep pure logic under lib/chess; place side-effects (database, network) in lib/storage or service modules.\nPrefer pattern matching, avoid partial functions, return Or_error.t for recoverable failures.\nAvoid ad-hoc printf in long-lived services—use logging macros once wired in.\n\n\n\n\n\ngit checkout -b feature/&lt;descriptor&gt;.\nKeep commits focused/imperative (e.g., feat: add opening catalogue).\nRebase on main before pushing; resolve conflicts locally.\nOpen PR with summary, test evidence, rollout notes; request review.\n\n\n\n\n\nSource the opam switch in new shells: eval $(opam env --set-switch).\nRecommended: VS Code + OCaml Platform, or Emacs + merlin; enable ocamlformat-on-save.\nOptional Git hooks under scripts/ can enforce formatting/tests pre-push.\n\n\n\n\n\nConnection errors to Postgres: ensure docker compose ps shows containers healthy; confirm DATABASE_URL.\nEmbedding rate limits: mock Embedding_client or throttle job polling; capture fixtures for deterministic tests.\nQdrant schema mismatches: rerun migrations or wipe data/qdrant if working with disposable dev data.\nCLI query returning curated results only: API is still prototype—planner stubs curated data until Qdrant/Postgres integration lands.\n\n\n\n\n\nGitHub Actions workflow ci.yml runs on pushes/PRs (build + tests).\nNo remote caching: expect full builds; keep dependencies minimal.\nRe-run CI from GitHub Actions tab after rebases/flaky failures; log flakes in an issue.\nLocal dry-run (optional): HOME=$PWD act -j build-and-test -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest --container-architecture linux/amd64 (some GitHub services unavailable locally).\n\n\n\n\n\nChessmate for Dummies - Complete ingestion and search flow explanation\nArchitecture - System design, components, and data flow diagrams\nOperations - Deployment, monitoring, and backup procedures\nLLM Prompts - Useful prompts for chess analysis and data augmentation\nTroubleshooting - Common issues and solutions\nGuidelines - Collaboration standards and PR checklist",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#onboarding-checklist",
+    "href": "DEVELOPER.html#onboarding-checklist",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Copy .env.sample to .env and update the connection strings/API keys you need locally.\nInstall OCaml 5.1.x and opam; create the local switch inside the repo (lives under _opam/) and load it per shell with eval $(opam env --set-switch).\nInstall dependencies: opam install . --deps-only --with-test.\nBuild/test baseline: dune build, dune runtest, dune fmt --check.\nStart backing services when needed: docker compose up -d postgres qdrant (first run downloads images).\nRun migrations with a fresh database: export DATABASE_URL=postgres://chess:chess@localhost:5433/chessmate && ./scripts/migrate.sh.\nLaunch the prototype query API in its own shell: dune exec chessmate_api -- --port 8080.\nEnsure psql, Docker (with Compose), and curl are available on your PATH; set OPENAI_API_KEY if you intend to exercise the embedding worker and AGENT_API_KEY if you plan to test GPT-5 agent ranking.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#repository-layout-top-level",
+    "href": "DEVELOPER.html#repository-layout-top-level",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "lib/chess/: PGN/FEN parsing, metadata helpers, ECO catalogue, FEN tooling.\nlib/storage/, lib/embedding/, lib/query/, lib/cli/: persistence, embedding clients, query planner, shared CLI modules.\nbin/: CLI entry points (chessmate).\nservices/: long-running executables (embedding worker, query API prototype).\nscripts/: migrations/seeding helpers.\ndocs/: architecture, operations, developer, contribution guides.\ntest/: Alcotest suites + fixtures (test/fixtures/).\ndata/: Docker volumes (data/postgres, data/qdrant).",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#database-services",
+    "href": "DEVELOPER.html#database-services",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "# bring services up\nexport DATABASE_URL=postgres://chess:chess@localhost:5433/chessmate\nCHESSMATE_API_URL=http://localhost:8080\n\ndocker compose up -d postgres qdrant\n./scripts/migrate.sh\n\nDrop/reset by removing data/postgres and re-running migrations (the script is idempotent).\nInspect data with psql \"$DATABASE_URL\" -c 'SELECT id, opening_slug FROM games;'.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#build-test-workflow",
+    "href": "DEVELOPER.html#build-test-workflow",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Formatting: dune fmt (run before commits; CI enforces dune fmt --check).\nUnit tests: dune build && dune runtest.\nWatch mode: WATCH=1 dune runtest (re-runs changed suites).\nStream test output: dune runtest --no-buffer (useful for verbose parsers).\nIntegration passes: ensure Docker services are running, then dune runtest --force.\nBefore opening a PR: capture dune build && dune runtest output in the PR template.\n\n\n\n# Ingest a PGN (requires DATABASE_URL). Adjust or disable the queue guard via\n# CHESSMATE_MAX_PENDING_EMBEDDINGS before bulk imports.\nchessmate ingest test/fixtures/extended_sample_game.pgn\n\n# Query prototype API (ensure server runs on localhost:8080)\nchessmate query \"Show French Defense draws with queenside majority\"\n\n# Embedding worker loop (replace OPENAI_API_KEY for real runs)\nOPENAI_API_KEY=dummy chessmate embedding-worker --workers 4 --poll-sleep 1.0\n\n# Watch queue depth & throughput every two minutes\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/embedding_metrics.sh --interval 120\n\n# Prune stale pending jobs after re-ingest\nDATABASE_URL=postgres://chess:chess@localhost:5433/chessmate \\\n  scripts/prune_pending_jobs.sh 2000\n\n# FEN diagnostics\nchessmate fen test/fixtures/sample_game.pgn | head -n 5\n\n# Enable GPT-5 agent ranking (optional)\nAGENT_API_KEY=test-key AGENT_REASONING_EFFORT=low AGENT_CACHE_CAPACITY=200 \\\n  chessmate query \"Explain Najdorf exchange sacrifices\"\n\n\n\n\nKeep CHESSMATE_MAX_PENDING_EMBEDDINGS conservative in development (≤ 400k) so runaway queues fail fast.\nMetrics script cadence: 60–120 seconds works well for 5–10 worker loops; shorten to 30 seconds while tuning.\nWhen throughput plateaus, lower --workers or increase --poll-sleep before OpenAI throttling kicks in.\nAlways prune pending jobs with populated vector_ids before re-ingesting the same PGN to avoid duplicates.\nAgent evaluations are optional; unset AGENT_API_KEY when running tests offline or use AGENT_REASONING_EFFORT=low to reduce cost/latency during development.\nKeep CHESSMATE_MAX_PENDING_EMBEDDINGS conservative in development (≤ 400k) so runaway queues fail fast.\nMetrics script cadence: 60–120 seconds works well for 5–10 worker loops; shorten to 30 seconds while tuning.\nWhen throughput plateaus, lower --workers or increase --poll-sleep before OpenAI throttling kicks in.\nAlways prune pending jobs with populated vector_ids before re-ingesting the same PGN to avoid duplicates.\n\n\n\n\n# let raw = Stdio.In_channel.read_all \"game.pgn\";;\nval raw : string = \"...\"\n# match Chessmate.Pgn_parser.parse raw with\n  | Ok game -&gt; List.take game.moves 3\n  | Error err -&gt; raise_s [%sexp \"parse failure\", (err : Error.t)]\n;;\n- : Chessmate.Pgn_parser.move list = [ ... ]\n\n# match Chessmate.Pgn_parser.parse_file \"game.pgn\" with\n  | Ok game -&gt; Chessmate.Game_metadata.of_headers game.headers\n  | Error err -&gt; raise_s [%sexp \"parse-file failure\", (err : Error.t)]\n;;\n- : Chessmate.Game_metadata.t = { ... }",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#coding-standards",
+    "href": "DEVELOPER.html#coding-standards",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Adopt open! Base; expose only required signatures via .mli.\nKeep pure logic under lib/chess; place side-effects (database, network) in lib/storage or service modules.\nPrefer pattern matching, avoid partial functions, return Or_error.t for recoverable failures.\nAvoid ad-hoc printf in long-lived services—use logging macros once wired in.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#git-workflow",
+    "href": "DEVELOPER.html#git-workflow",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "git checkout -b feature/&lt;descriptor&gt;.\nKeep commits focused/imperative (e.g., feat: add opening catalogue).\nRebase on main before pushing; resolve conflicts locally.\nOpen PR with summary, test evidence, rollout notes; request review.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#ide-tooling-tips",
+    "href": "DEVELOPER.html#ide-tooling-tips",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Source the opam switch in new shells: eval $(opam env --set-switch).\nRecommended: VS Code + OCaml Platform, or Emacs + merlin; enable ocamlformat-on-save.\nOptional Git hooks under scripts/ can enforce formatting/tests pre-push.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#troubleshooting",
+    "href": "DEVELOPER.html#troubleshooting",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Connection errors to Postgres: ensure docker compose ps shows containers healthy; confirm DATABASE_URL.\nEmbedding rate limits: mock Embedding_client or throttle job polling; capture fixtures for deterministic tests.\nQdrant schema mismatches: rerun migrations or wipe data/qdrant if working with disposable dev data.\nCLI query returning curated results only: API is still prototype—planner stubs curated data until Qdrant/Postgres integration lands.",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#continuous-integration",
+    "href": "DEVELOPER.html#continuous-integration",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "GitHub Actions workflow ci.yml runs on pushes/PRs (build + tests).\nNo remote caching: expect full builds; keep dependencies minimal.\nRe-run CI from GitHub Actions tab after rebases/flaky failures; log flakes in an issue.\nLocal dry-run (optional): HOME=$PWD act -j build-and-test -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest --container-architecture linux/amd64 (some GitHub services unavailable locally).",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  },
+  {
+    "objectID": "DEVELOPER.html#related-documentation",
+    "href": "DEVELOPER.html#related-documentation",
+    "title": "Developer Handbook",
+    "section": "",
+    "text": "Chessmate for Dummies - Complete ingestion and search flow explanation\nArchitecture - System design, components, and data flow diagrams\nOperations - Deployment, monitoring, and backup procedures\nLLM Prompts - Useful prompts for chess analysis and data augmentation\nTroubleshooting - Common issues and solutions\nGuidelines - Collaboration standards and PR checklist",
+    "crumbs": [
+      "Home",
+      "Team Practices",
+      "Developer Handbook"
+    ]
+  }
+]

@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.25">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>chessmate_for_dummies – Chessmate Documentation</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-b337f537912f5ab074b938eebad4c5d7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    </a>
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Chessmate Documentation</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link active" href="./index.html" aria-current="page"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">Overview</a></li><li class="breadcrumb-item"><a href="./CHESSMATE_FOR_DUMMIES.html">Complete System Overview: From Chess Game to Natural Language Search</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+      <a href="./index.html" class="sidebar-logo-link">
+      </a>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Overview</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Chessmate Documentation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CHESSMATE_FOR_DUMMIES.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Complete System Overview: From Chess Game to Natural Language Search</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./IMPLEMENTATION_PLAN.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Implementation Plan</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Architecture &amp; Ops</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ARCHITECTURE.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Architecture Overview</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./OPERATIONS.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Operations Playbook</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./TROUBLESHOOTING.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Troubleshooting</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true">
+ <span class="menu-text">Team Practices</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./DEVELOPER.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Developer Handbook</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./GUIDELINES.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Collaboration &amp; Quality Guidelines</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./PROMPTS.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">LLM Prompts for Chess Analysis</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#complete-system-overview-from-chess-game-to-natural-language-search" id="toc-complete-system-overview-from-chess-game-to-natural-language-search" class="nav-link active" data-scroll-target="#complete-system-overview-from-chess-game-to-natural-language-search">Complete System Overview: From Chess Game to Natural Language Search</a>
+  <ul class="collapse">
+  <li><a href="#what-is-semantic-search" id="toc-what-is-semantic-search" class="nav-link" data-scroll-target="#what-is-semantic-search">What is Semantic Search?</a></li>
+  <li><a href="#part-1-ingestion---getting-chess-games-into-the-system" id="toc-part-1-ingestion---getting-chess-games-into-the-system" class="nav-link" data-scroll-target="#part-1-ingestion---getting-chess-games-into-the-system">Part 1: Ingestion - Getting Chess Games Into The System</a>
+  <ul class="collapse">
+  <li><a href="#step-1-parsing-pgn-files-libchesspgn_parser.ml" id="toc-step-1-parsing-pgn-files-libchesspgn_parser.ml" class="nav-link" data-scroll-target="#step-1-parsing-pgn-files-libchesspgn_parser.ml">Step 1: Parsing PGN Files (<code>lib/chess/pgn_parser.ml</code>)</a></li>
+  <li><a href="#step-2-generating-fen-snapshots-libchesspgn_to_fen.ml" id="toc-step-2-generating-fen-snapshots-libchesspgn_to_fen.ml" class="nav-link" data-scroll-target="#step-2-generating-fen-snapshots-libchesspgn_to_fen.ml">Step 2: Generating FEN Snapshots (<code>lib/chess/pgn_to_fen.ml</code>)</a></li>
+  <li><a href="#step-3-extracting-opening-information-libchessopenings.ml" id="toc-step-3-extracting-opening-information-libchessopenings.ml" class="nav-link" data-scroll-target="#step-3-extracting-opening-information-libchessopenings.ml">Step 3: Extracting Opening Information (<code>lib/chess/openings.ml</code>)</a></li>
+  <li><a href="#step-4-storing-in-postgresql-libstoragerepo_postgres.ml" id="toc-step-4-storing-in-postgresql-libstoragerepo_postgres.ml" class="nav-link" data-scroll-target="#step-4-storing-in-postgresql-libstoragerepo_postgres.ml">Step 4: Storing in PostgreSQL (<code>lib/storage/repo_postgres.ml</code>)</a></li>
+  </ul></li>
+  <li><a href="#part-2-embedding-pipeline---creating-vector-representations" id="toc-part-2-embedding-pipeline---creating-vector-representations" class="nav-link" data-scroll-target="#part-2-embedding-pipeline---creating-vector-representations">Part 2: Embedding Pipeline - Creating Vector Representations</a>
+  <ul class="collapse">
+  <li><a href="#step-5-the-embedding-worker-servicesembedding_workerembedding_worker.ml" id="toc-step-5-the-embedding-worker-servicesembedding_workerembedding_worker.ml" class="nav-link" data-scroll-target="#step-5-the-embedding-worker-servicesembedding_workerembedding_worker.ml">Step 5: The Embedding Worker (<code>services/embedding_worker/embedding_worker.ml</code>)</a></li>
+  <li><a href="#what-goes-where-postgresql-vs-qdrant" id="toc-what-goes-where-postgresql-vs-qdrant" class="nav-link" data-scroll-target="#what-goes-where-postgresql-vs-qdrant">What Goes Where: PostgreSQL vs Qdrant</a></li>
+  </ul></li>
+  <li><a href="#part-3-natural-language-search---from-query-to-results" id="toc-part-3-natural-language-search---from-query-to-results" class="nav-link" data-scroll-target="#part-3-natural-language-search---from-query-to-results">Part 3: Natural Language Search - From Query to Results</a>
+  <ul class="collapse">
+  <li><a href="#step-6-intent-analysis-libqueryquery_intent.ml" id="toc-step-6-intent-analysis-libqueryquery_intent.ml" class="nav-link" data-scroll-target="#step-6-intent-analysis-libqueryquery_intent.ml">Step 6: Intent Analysis (<code>lib/query/query_intent.ml</code>)</a></li>
+  <li><a href="#step-7-hybrid-retrieval-libqueryhybrid_executor.ml" id="toc-step-7-hybrid-retrieval-libqueryhybrid_executor.ml" class="nav-link" data-scroll-target="#step-7-hybrid-retrieval-libqueryhybrid_executor.ml">Step 7: Hybrid Retrieval (<code>lib/query/hybrid_executor.ml</code>)</a></li>
+  <li><a href="#step-8-combining-reranking-results-libqueryhybrid_executor.ml168-202" id="toc-step-8-combining-reranking-results-libqueryhybrid_executor.ml168-202" class="nav-link" data-scroll-target="#step-8-combining-reranking-results-libqueryhybrid_executor.ml168-202">Step 8: Combining &amp; Reranking Results (<code>lib/query/hybrid_executor.ml:168-202</code>)</a></li>
+  <li><a href="#step-9-formatting-results-libqueryresult_formatter.ml" id="toc-step-9-formatting-results-libqueryresult_formatter.ml" class="nav-link" data-scroll-target="#step-9-formatting-results-libqueryresult_formatter.ml">Step 9: Formatting Results (<code>lib/query/result_formatter.ml</code>)</a></li>
+  </ul></li>
+  <li><a href="#data-flow-diagram" id="toc-data-flow-diagram" class="nav-link" data-scroll-target="#data-flow-diagram">Data Flow Diagram</a></li>
+  <li><a href="#summary-key-takeaways" id="toc-summary-key-takeaways" class="nav-link" data-scroll-target="#summary-key-takeaways">Summary: Key Takeaways</a></li>
+  <li><a href="#code-references" id="toc-code-references" class="nav-link" data-scroll-target="#code-references">Code References</a></li>
+  <li><a href="#future-enhancements" id="toc-future-enhancements" class="nav-link" data-scroll-target="#future-enhancements">Future Enhancements</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">Overview</a></li><li class="breadcrumb-item"><a href="./CHESSMATE_FOR_DUMMIES.html">Complete System Overview: From Chess Game to Natural Language Search</a></li></ol></nav></header>
+
+
+
+
+<section id="complete-system-overview-from-chess-game-to-natural-language-search" class="level1">
+<h1>Complete System Overview: From Chess Game to Natural Language Search</h1>
+<p>This document explains how Chessmate ingests chess games, stores information across PostgreSQL and Qdrant, and processes natural language queries to deliver relevant results.</p>
+<section id="what-is-semantic-search" class="level2">
+<h2 class="anchored" data-anchor-id="what-is-semantic-search">What is Semantic Search?</h2>
+<p>Before diving in, let’s understand the concept: Traditional search matches exact keywords (like Google in the 1990s). <strong>Semantic search</strong> understands <em>meaning</em>. For example, if you search for “King’s Indian games,” the system knows you’re looking for games with ECO codes E60-E99, even though “E60-E99” never appears in your query.</p>
+<p>Chessmate uses <strong>hybrid search</strong>: combining traditional filters (player ratings, opening codes) with <strong>vector embeddings</strong> (numerical representations of chess positions that capture their characteristics).</p>
+<hr>
+</section>
+<section id="part-1-ingestion---getting-chess-games-into-the-system" class="level2">
+<h2 class="anchored" data-anchor-id="part-1-ingestion---getting-chess-games-into-the-system">Part 1: Ingestion - Getting Chess Games Into The System</h2>
+<section id="step-1-parsing-pgn-files-libchesspgn_parser.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-1-parsing-pgn-files-libchesspgn_parser.ml">Step 1: Parsing PGN Files (<code>lib/chess/pgn_parser.ml</code>)</h3>
+<p>When you run <code>chessmate ingest game.pgn</code>, the system:</p>
+<ol type="1">
+<li><p><strong>Reads the PGN file</strong> - a chess game format with headers and moves:</p>
+<pre><code>[Event "World Championship"]
+[White "Kasparov, Garry"]
+[Black "Karpov, Anatoly"]
+[WhiteElo "2800"]
+[BlackElo "2750"]
+[Result "1-0"]
+[ECO "E97"]
+
+1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 ...</code></pre></li>
+<li><p><strong>Extracts headers</strong> → player names, ratings, event, result, ECO code</p></li>
+<li><p><strong>Parses moves</strong> → converts algebraic notation (e4, Nf3) into structured data</p></li>
+</ol>
+</section>
+<section id="step-2-generating-fen-snapshots-libchesspgn_to_fen.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-2-generating-fen-snapshots-libchesspgn_to_fen.ml">Step 2: Generating FEN Snapshots (<code>lib/chess/pgn_to_fen.ml</code>)</h3>
+<p>For <em>every half-move</em> (ply), the system generates a <strong>FEN string</strong> - a text representation of the board position:</p>
+<pre><code>rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1</code></pre>
+<p>This FEN captures: - Piece placement - Who moves next - Castling rights - En passant squares - Move counters</p>
+<p><strong>Why?</strong> Each position becomes searchable independently. You can find “French Defense endgames” by searching positions at ply 40+, not just full games.</p>
+</section>
+<section id="step-3-extracting-opening-information-libchessopenings.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-3-extracting-opening-information-libchessopenings.ml">Step 3: Extracting Opening Information (<code>lib/chess/openings.ml</code>)</h3>
+<p>The system maintains a <strong>catalogue</strong> mapping opening names to ECO codes:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>King's Indian Defense → E60-E99</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>French Defense → C00-C19</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Sicilian Defense → B20-B99</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>It also handles <strong>synonyms</strong>: “king’s indian”, “kings indian defense”, etc. all map to the same opening.</p>
+</section>
+<section id="step-4-storing-in-postgresql-libstoragerepo_postgres.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-4-storing-in-postgresql-libstoragerepo_postgres.ml">Step 4: Storing in PostgreSQL (<code>lib/storage/repo_postgres.ml</code>)</h3>
+<p>The database schema (<code>scripts/migrations/0001_init.sql</code>):</p>
+<section id="postgresql-tables" class="level4">
+<h4 class="anchored" data-anchor-id="postgresql-tables">PostgreSQL Tables:</h4>
+<ol type="1">
+<li><p><strong><code>players</code> table</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> <span class="kw">id</span> (auto<span class="op">-</span><span class="kw">increment</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> name (e.g., <span class="ot">"Kasparov, Garry"</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> fide_id (optional)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> rating_peak</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong><code>games</code> table</strong> (one row per game):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> <span class="kw">id</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> white_player_id → <span class="kw">references</span> players</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> black_player_id → <span class="kw">references</span> players</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> event (<span class="ot">"World Championship"</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> site, <span class="fu">round</span>, played_on (<span class="dt">date</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> eco_code (<span class="ot">"E97"</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> opening_name (<span class="ot">"King's Indian Defense, Orthodox Variation"</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> opening_slug (<span class="ot">"kings_indian_defense"</span>)  ← searchable slug</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> result (<span class="ot">"1-0"</span>, <span class="ot">"0-1"</span>, <span class="ot">"1/2-1/2"</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> white_rating (<span class="dv">2800</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> black_rating (<span class="dv">2750</span>)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> pgn (<span class="kw">full</span> PGN text)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Indexes</strong>: On ratings, ECO codes, opening_slug for fast filtering</p></li>
+<li><p><strong><code>positions</code> table</strong> (dozens of rows per game):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> <span class="kw">id</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> game_id → <span class="kw">references</span> games</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> ply (half<span class="op">-</span><span class="kw">move</span> <span class="dt">number</span>: <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span><span class="op">..</span>.)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> fen (<span class="ot">"rnbqkbnr/pppppppp/..."</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> san (<span class="ot">"e4"</span>, <span class="ot">"Nf3"</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> move_number (<span class="kw">full</span> <span class="kw">move</span>: <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span><span class="op">..</span>.)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> side_to_move (<span class="ot">"white"</span> <span class="kw">or</span> <span class="ot">"black"</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> vector_id (reference <span class="kw">to</span> Qdrant, <span class="kw">initially</span> <span class="kw">NULL</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong><code>embedding_jobs</code> table</strong> (queued work):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> <span class="kw">id</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> position_id → <span class="kw">references</span> positions</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> fen (<span class="kw">the</span> FEN string <span class="kw">to</span> embed)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> status (<span class="ot">"pending"</span> → <span class="ot">"in_progress"</span> → <span class="ot">"completed"</span><span class="op">/</span><span class="ot">"failed"</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> attempts (retry counter)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> last_error</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> timestamps (enqueued_at, started_at, completed_at)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ol>
+<p><strong>What happens during ingestion</strong> (<code>lib/cli/ingest_command.ml:47-68</code>): 1. Upsert players (avoid duplicates by name/FIDE ID) 2. Insert game record 3. For each move, insert position + enqueue embedding job (but aborts early if the pending queue already exceeds <code>CHESSMATE_MAX_PENDING_EMBEDDINGS</code> — default 250k). 4. Print: “Stored game 42 with 77 positions”</p>
+<blockquote class="blockquote">
+<p>Guard rail: the CLI checks <code>CHESSMATE_MAX_PENDING_EMBEDDINGS</code> (default 250k) before inserting new jobs. Raise or disable this value only when you are certain the embedding workers can keep up.</p>
+</blockquote>
+<hr>
+</section>
+</section>
+</section>
+<section id="part-2-embedding-pipeline---creating-vector-representations" class="level2">
+<h2 class="anchored" data-anchor-id="part-2-embedding-pipeline---creating-vector-representations">Part 2: Embedding Pipeline - Creating Vector Representations</h2>
+<section id="step-5-the-embedding-worker-servicesembedding_workerembedding_worker.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-5-the-embedding-worker-servicesembedding_workerembedding_worker.ml">Step 5: The Embedding Worker (<code>services/embedding_worker/embedding_worker.ml</code>)</h3>
+<p>This is a <strong>background service</strong> that runs continuously (pass <code>--workers N</code> to run multiple loops in one process):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> <span class="kw">rec</span> work_loop repo embedding_client ~poll_sleep =</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">match</span> claim_pending_jobs repo ~limit:<span class="dv">16</span> <span class="kw">with</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  | <span class="dt">Ok</span> jobs -&gt; <span class="dt">List</span>.iter jobs ~f:(process_job repo embedding_client)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  | <span class="dt">Error</span> _ -&gt; sleep <span class="kw">and</span> retry</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Every 2 seconds, it:</p>
+<ol type="1">
+<li><p><strong>Atomically claims</strong> pending jobs (limit 16) – rows transition from <code>pending</code> to <code>in_progress</code> using <code>FOR UPDATE SKIP LOCKED</code>, so multiple workers can run without duplicating work.</p></li>
+<li><p><strong>Calls OpenAI API</strong> (<code>lib/embedding/embedding_client.ml:75-93</code>):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="er">POST</span> <span class="er">https://api.openai.com/v1/embeddings</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"model"</span><span class="fu">:</span> <span class="st">"text-embedding-3-small"</span><span class="fu">,</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"input"</span><span class="fu">:</span> <span class="ot">[</span><span class="st">"rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1"</span><span class="ot">]</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Returns a <strong>1536-dimensional vector</strong>: <code>[0.023, -0.451, 0.882, ...]</code></p></li>
+<li><p><strong>Stores in Qdrant</strong> (vector database) via <code>lib/storage/repo_qdrant.ml</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>upsert_points [</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  { id: <span class="st">"abc123"</span>,  # hash <span class="kw">of</span> FEN</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    vector: [<span class="fl">0.023</span>, <span class="fl">-0.451</span>, ...],</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    payload: {</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>      game_id: <span class="dv">42</span>,</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>      white_name: <span class="st">"Kasparov"</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>      black_name: <span class="st">"Karpov"</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>      white_elo: <span class="dv">2800</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>      black_elo: <span class="dv">2750</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>      opening_slug: <span class="st">"kings_indian_defense"</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>      eco_code: <span class="st">"E97"</span>,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>      <span class="dt">result</span>: <span class="st">"1-0"</span>,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>      ply: <span class="dv">15</span>,</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>      phases: [<span class="st">"middlegame"</span>],</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>      themes: [<span class="st">"king_attack"</span>],</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>      keywords: [<span class="st">"kasparov"</span>, <span class="st">"karpov"</span>, <span class="st">"kings"</span>, <span class="st">"indian"</span>]</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Updates PostgreSQL</strong>:</p>
+<ul>
+<li>Set <code>positions.vector_id = "abc123"</code> (links Postgres position to Qdrant vector)</li>
+<li>Mark job as completed</li>
+</ul></li>
+</ol>
+<blockquote class="blockquote">
+<p>Need to see progress in real time? Run <code>scripts/embedding_metrics.sh --interval 120</code> to print queue depth, throughput, and a back-of-the-envelope ETA while the worker runs.</p>
+</blockquote>
+</section>
+<section id="what-goes-where-postgresql-vs-qdrant" class="level3">
+<h3 class="anchored" data-anchor-id="what-goes-where-postgresql-vs-qdrant">What Goes Where: PostgreSQL vs Qdrant</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Data Type</th>
+<th>PostgreSQL</th>
+<th>Qdrant</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Player info</strong></td>
+<td>✅ Full records</td>
+<td>❌ Just names in payload</td>
+</tr>
+<tr class="even">
+<td><strong>Game metadata</strong></td>
+<td>✅ Full records (event, date, result, ECO)</td>
+<td>❌</td>
+</tr>
+<tr class="odd">
+<td><strong>Positions (FEN/SAN)</strong></td>
+<td>✅ Full records</td>
+<td>❌</td>
+</tr>
+<tr class="even">
+<td><strong>Vector embeddings</strong></td>
+<td>❌</td>
+<td>✅ 1536-d vectors</td>
+</tr>
+<tr class="odd">
+<td><strong>Searchable payload</strong></td>
+<td>❌</td>
+<td>✅ Denormalized (for filtering)</td>
+</tr>
+<tr class="even">
+<td><strong>Linking</strong></td>
+<td><code>vector_id</code> → Qdrant</td>
+<td><code>game_id</code> → PostgreSQL</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why two databases?</strong> - <strong>PostgreSQL</strong>: Fast structured queries (“games where white rating &gt; 2700 AND eco = ‘E97’”) - <strong>Qdrant</strong>: Fast semantic similarity (“positions similar to this endgame”) - <strong>Hybrid</strong>: Combine both for powerful queries</p>
+<hr>
+</section>
+</section>
+<section id="part-3-natural-language-search---from-query-to-results" class="level2">
+<h2 class="anchored" data-anchor-id="part-3-natural-language-search---from-query-to-results">Part 3: Natural Language Search - From Query to Results</h2>
+<section id="step-6-intent-analysis-libqueryquery_intent.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-6-intent-analysis-libqueryquery_intent.ml">Step 6: Intent Analysis (<code>lib/query/query_intent.ml</code>)</h3>
+<p>When you search: <strong>“Find King’s Indian games where White is 2500 and Black 100 points lower”</strong></p>
+<p>The system extracts:</p>
+<ol type="1">
+<li><p><strong>Normalize text</strong> (line 58-65):</p>
+<pre><code>"find kings indian games where white is 2500 and black 100 points lower"</code></pre></li>
+<li><p><strong>Extract limit</strong> (line 85-103):</p>
+<ul>
+<li>Looks for patterns: “find 5 games”, “top 10”, “show three”</li>
+<li>Result: <code>limit = 5</code> (default)</li>
+</ul></li>
+<li><p><strong>Extract opening filters</strong> (line 119-138):</p>
+<ul>
+<li><p>Checks opening catalogue for substring matches</p></li>
+<li><p>“kings indian” → matches <code>King's Indian Defense</code></p></li>
+<li><p>Creates filters:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>{ field = <span class="st">"opening"</span>, value = <span class="st">"kings_indian_defense"</span> }</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>{ field = <span class="st">"eco_range"</span>, value = <span class="st">"E60-E99"</span> }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ul></li>
+<li><p><strong>Extract rating filters</strong> (line 161-248):</p>
+<ul>
+<li><p>Parses “white is 2500” → <code>white_min = Some 2500</code></p></li>
+<li><p>Parses “100 points lower” → <code>max_rating_delta = Some 100</code></p></li>
+<li><p>Result:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>{ white_min = <span class="dt">Some</span> <span class="dv">2500</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>; black_min = <span class="dt">None</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>; max_rating_delta = <span class="dt">Some</span> <span class="dv">100</span> }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ul></li>
+<li><p><strong>Extract keywords</strong> (line 150-159):</p>
+<ul>
+<li>Removes stopwords (“find”, “where”, “is”, “and”)</li>
+<li>Result: <code>["kings", "indian", "white", "black", "points", "lower"]</code></li>
+</ul></li>
+<li><p><strong>Detect phases/themes</strong> (line 119-138):</p>
+<ul>
+<li>“endgame” → <code>{ field = "phase", value = "endgame" }</code></li>
+<li>“queenside majority” → <code>{ field = "theme", value = "queenside_majority" }</code></li>
+</ul></li>
+</ol>
+<p><strong>Output plan</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  cleaned_text: <span class="st">"find kings indian games where white is 2500..."</span>,</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  limit: <span class="dv">5</span>,</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  filters: [</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    { field: <span class="st">"opening"</span>, value: <span class="st">"kings_indian_defense"</span> },</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    { field: <span class="st">"eco_range"</span>, value: <span class="st">"E60-E99"</span> }</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  ],</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  rating: { white_min: <span class="dt">Some</span> <span class="dv">2500</span>, black_min: <span class="dt">None</span>, max_rating_delta: <span class="dt">Some</span> <span class="dv">100</span> },</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  keywords: [<span class="st">"kings"</span>, <span class="st">"indian"</span>, <span class="st">"white"</span>, <span class="st">"black"</span>, ...]</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="step-7-hybrid-retrieval-libqueryhybrid_executor.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-7-hybrid-retrieval-libqueryhybrid_executor.ml">Step 7: Hybrid Retrieval (<code>lib/query/hybrid_executor.ml</code>)</h3>
+<p>Now the system fetches data from <strong>both</strong> databases:</p>
+<section id="a.-postgresql-retrieval-libstoragerepo_postgres.ml293-307" class="level4">
+<h4 class="anchored" data-anchor-id="a.-postgresql-retrieval-libstoragerepo_postgres.ml293-307">7a. PostgreSQL Retrieval (<code>lib/storage/repo_postgres.ml:293-307</code>)</h4>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> g.<span class="kw">id</span>, w.name, b.name, g.result, g.event, g.opening_slug,</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>       g.eco_code, g.white_rating, g.black_rating</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="kw">FROM</span> games g</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="kw">LEFT</span> <span class="kw">JOIN</span> players w <span class="kw">ON</span> g.white_player_id <span class="op">=</span> w.<span class="kw">id</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="kw">LEFT</span> <span class="kw">JOIN</span> players b <span class="kw">ON</span> g.black_player_id <span class="op">=</span> b.<span class="kw">id</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="kw">WHERE</span> g.opening_slug <span class="op">=</span> <span class="st">'kings_indian_defense'</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> g.eco_code <span class="op">&gt;=</span> <span class="st">'E60'</span> <span class="kw">AND</span> g.eco_code <span class="op">&lt;=</span> <span class="st">'E99'</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> g.white_rating <span class="op">&gt;=</span> <span class="dv">2500</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> g.white_rating <span class="kw">IS</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> g.black_rating <span class="kw">IS</span> <span class="kw">NOT</span> <span class="kw">NULL</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">AND</span> <span class="fu">ABS</span>(g.white_rating <span class="op">-</span> g.black_rating) <span class="op">&lt;=</span> <span class="dv">100</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="kw">ORDER</span> <span class="kw">BY</span> g.played_on <span class="kw">DESC</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="kw">LIMIT</span> <span class="dv">50</span>;  <span class="co">-- Overfetch for reranking</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Returns: <strong>List of game summaries</strong> (metadata only, no positions yet)</p>
+</section>
+<section id="b.-qdrant-vector-search-libstoragerepo_qdrant.ml101-134" class="level4">
+<h4 class="anchored" data-anchor-id="b.-qdrant-vector-search-libstoragerepo_qdrant.ml101-134">7b. Qdrant Vector Search (<code>lib/storage/repo_qdrant.ml:101-134</code>)</h4>
+<ol type="1">
+<li><p><strong>Build query vector</strong> (<code>lib/query/hybrid_planner.ml:83-95</code>):</p>
+<ul>
+<li>Hash keywords into 8-dimensional vector (simplified version)</li>
+<li>Real system uses OpenAI embedding of the query text</li>
+<li>Result: <code>[0.65, 0.23, -0.41, ...]</code></li>
+</ul></li>
+<li><p><strong>Build payload filters</strong> (<code>lib/query/hybrid_planner.ml:69-76</code>):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"must"</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">"key"</span><span class="fu">:</span> <span class="st">"opening_slug"</span><span class="fu">,</span> <span class="dt">"match"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"value"</span><span class="fu">:</span> <span class="st">"kings_indian_defense"</span> <span class="fu">}}</span><span class="ot">,</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">"key"</span><span class="fu">:</span> <span class="st">"white_elo"</span><span class="fu">,</span> <span class="dt">"range"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"gte"</span><span class="fu">:</span> <span class="dv">2500</span> <span class="fu">}}</span><span class="ot">,</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">"key"</span><span class="fu">:</span> <span class="st">"black_elo"</span><span class="fu">,</span> <span class="dt">"range"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"gte"</span><span class="fu">:</span> <span class="dv">0</span> <span class="fu">}}</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Search Qdrant</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="er">POST</span> <span class="er">/collections/positions/points/search</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"vector"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"name"</span><span class="fu">:</span> <span class="st">"default"</span><span class="fu">,</span> <span class="dt">"vector"</span><span class="fu">:</span> <span class="ot">[</span><span class="fl">0.65</span><span class="ot">,</span> <span class="fl">0.23</span><span class="ot">,</span> <span class="er">...</span><span class="ot">]</span> <span class="fu">},</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"filter"</span><span class="fu">:</span> <span class="fu">{</span> <span class="er">...</span> <span class="fu">},</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"limit"</span><span class="fu">:</span> <span class="dv">100</span><span class="fu">,</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"with_payload"</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Returns: <strong>List of scored vectors</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span> <span class="dt">"id"</span><span class="fu">:</span> <span class="st">"abc123"</span><span class="fu">,</span> <span class="dt">"score"</span><span class="fu">:</span> <span class="fl">0.92</span><span class="fu">,</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"payload"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"game_id"</span><span class="fu">:</span> <span class="dv">42</span><span class="fu">,</span> <span class="dt">"white_name"</span><span class="fu">:</span> <span class="st">"Kasparov"</span><span class="fu">,</span> <span class="er">...</span> <span class="fu">}}</span><span class="ot">,</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">{</span> <span class="dt">"id"</span><span class="fu">:</span> <span class="st">"def456"</span><span class="fu">,</span> <span class="dt">"score"</span><span class="fu">:</span> <span class="fl">0.87</span><span class="fu">,</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"payload"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"game_id"</span><span class="fu">:</span> <span class="dv">73</span><span class="fu">,</span> <span class="dt">"white_name"</span><span class="fu">:</span> <span class="st">"Anand"</span><span class="fu">,</span> <span class="er">...</span> <span class="fu">}}</span><span class="ot">,</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  <span class="er">...</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="ot">]</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="step-8-combining-reranking-results-libqueryhybrid_executor.ml168-202" class="level3">
+<h3 class="anchored" data-anchor-id="step-8-combining-reranking-results-libqueryhybrid_executor.ml168-202">Step 8: Combining &amp; Reranking Results (<code>lib/query/hybrid_executor.ml:168-202</code>)</h3>
+<p>Now we have: - <strong>PostgreSQL results</strong>: 50 games matching metadata filters - <strong>Qdrant results</strong>: 100 positions (with game_id) matching vector similarity</p>
+<p><strong>How they’re combined</strong>:</p>
+<ol type="1">
+<li><p><strong>Index vector hits by game_id</strong> (line 193):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="dt">Map</span> { <span class="dv">42</span> → score=<span class="fl">0.92</span>, <span class="dv">73</span> → score=<span class="fl">0.87</span>, ... }</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>For each PostgreSQL game</strong> (line 195-198):</p>
+<ul>
+<li>Look up vector hit (if any) by <code>game_id</code></li>
+<li>Calculate <strong>hybrid score</strong> (line 130-134):</li>
+</ul>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> score_result plan summary vector_hit =</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="co">(* Vector score: from Qdrant similarity OR fallback heuristic *)</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> vector =</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">match</span> vector_hit <span class="kw">with</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    | <span class="dt">Some</span> hit → normalize(hit.score)  # e.g., <span class="fl">0.92</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    | <span class="dt">None</span> → fallback_heuristic()       # e.g., <span class="fl">0.6</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  <span class="kw">in</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">(* Keyword score: overlap between query keywords and game metadata *)</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> keyword =</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>    matching_keywords / total_keywords  # e.g., <span class="dv">4</span>/<span class="dv">7</span> = <span class="fl">0.57</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">in</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">(* Weighted combination: 70% vector + 30% keyword *)</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> combined = (<span class="fl">0.7</span> * vector) + (<span class="fl">0.3</span> * keyword) <span class="kw">in</span></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>  (combined, vector, keyword)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<ul>
+<li>Game #42 (Kasparov vs Karpov):
+<ul>
+<li>Vector score: 0.92 (very similar position)</li>
+<li>Keyword score: 0.71 (5/7 keywords match)</li>
+<li><strong>Total: 0.857</strong></li>
+</ul></li>
+<li>Game #73 (Anand vs Carlsen):
+<ul>
+<li>Vector score: 0.87</li>
+<li>Keyword score: 0.43</li>
+<li><strong>Total: 0.738</strong></li>
+</ul></li>
+</ul></li>
+<li><p><strong>Sort by total score</strong> (line 199):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="dt">List</span>.sort ~<span class="dt">compare</span>:(<span class="kw">fun</span> a b -&gt; Float.<span class="dt">compare</span> b.total_score a.total_score)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Take top N</strong> (line 201):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode ocaml code-with-copy"><code class="sourceCode ocaml"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="dt">List</span>.take scored_results plan.limit  <span class="co">(* 5 games *)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+</ol>
+<hr>
+</section>
+<section id="step-9-formatting-results-libqueryresult_formatter.ml" class="level3">
+<h3 class="anchored" data-anchor-id="step-9-formatting-results-libqueryresult_formatter.ml">Step 9: Formatting Results (<code>lib/query/result_formatter.ml</code>)</h3>
+<p>Final output (JSON or text):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"question"</span><span class="fu">:</span> <span class="st">"Find King's Indian games where White is 2500 and Black 100 points lower"</span><span class="fu">,</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"plan"</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"filters"</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">"field"</span><span class="fu">:</span> <span class="st">"opening"</span><span class="fu">,</span> <span class="dt">"value"</span><span class="fu">:</span> <span class="st">"kings_indian_defense"</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">"field"</span><span class="fu">:</span> <span class="st">"eco_range"</span><span class="fu">,</span> <span class="dt">"value"</span><span class="fu">:</span> <span class="st">"E60-E99"</span> <span class="fu">}</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"rating"</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">"white_min"</span><span class="fu">:</span> <span class="dv">2500</span><span class="fu">,</span> <span class="dt">"max_rating_delta"</span><span class="fu">:</span> <span class="dv">100</span> <span class="fu">},</span></span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"limit"</span><span class="fu">:</span> <span class="dv">5</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"results"</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"game_id"</span><span class="fu">:</span> <span class="dv">42</span><span class="fu">,</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"white"</span><span class="fu">:</span> <span class="st">"Kasparov, Garry"</span><span class="fu">,</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"black"</span><span class="fu">:</span> <span class="st">"Karpov, Anatoly"</span><span class="fu">,</span></span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"white_rating"</span><span class="fu">:</span> <span class="dv">2800</span><span class="fu">,</span></span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"black_rating"</span><span class="fu">:</span> <span class="dv">2750</span><span class="fu">,</span></span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"result"</span><span class="fu">:</span> <span class="st">"1-0"</span><span class="fu">,</span></span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"event"</span><span class="fu">:</span> <span class="st">"World Championship"</span><span class="fu">,</span></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"opening"</span><span class="fu">:</span> <span class="st">"King's Indian Defense"</span><span class="fu">,</span></span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"eco_code"</span><span class="fu">:</span> <span class="st">"E97"</span><span class="fu">,</span></span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"score"</span><span class="fu">:</span> <span class="fl">0.857</span><span class="fu">,</span></span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"vector_score"</span><span class="fu">:</span> <span class="fl">0.92</span><span class="fu">,</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"keyword_score"</span><span class="fu">:</span> <span class="fl">0.71</span><span class="fu">,</span></span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a>      <span class="dt">"synopsis"</span><span class="fu">:</span> <span class="st">"Kasparov's King's Indian features aggressive pawn storms..."</span></span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="data-flow-diagram" class="level2">
+<h2 class="anchored" data-anchor-id="data-flow-diagram">Data Flow Diagram</h2>
+<pre><code>┌─────────────┐
+│  PGN File   │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│  1. Parse PGN               │
+│  2. Generate FENs (per ply) │
+│  3. Extract opening/ratings │
+└──────┬──────────────────────┘
+       │
+       ├──────────────────────────┐
+       │                          │
+       ▼                          ▼
+┌──────────────┐      ┌────────────────────┐
+│ PostgreSQL   │      │ Embedding Jobs     │
+│ - players    │      │ (queued for worker)│
+│ - games      │      └─────────┬──────────┘
+│ - positions  │                │
+└──────┬───────┘                │
+       │                        ▼
+       │              ┌──────────────────┐
+       │              │ Embedding Worker │
+       │              │ 1. Poll jobs     │
+       │              │ 2. Call OpenAI   │
+       │              │ 3. Store vectors │
+       │              └────┬─────────┬───┘
+       │                   │         │
+       │                   │         ▼
+       │                   │   ┌──────────┐
+       │                   │   │  Qdrant  │
+       │                   │   │ (vectors)│
+       │                   │   └──────────┘
+       │                   │
+       │                   ▼
+       │            (update vector_id)
+       │                   │
+       └───────────────────┘
+
+┌─────────────────────────────┐
+│  SEARCH QUERY               │
+│  "Find King's Indian games" │
+└──────────┬──────────────────┘
+           │
+           ▼
+┌───────────────────────────┐
+│  Query Intent Analysis    │
+│  - Extract filters        │
+│  - Parse ratings          │
+│  - Extract keywords       │
+└──────┬────────────────────┘
+       │
+       ├──────────────┬──────────────┐
+       │              │              │
+       ▼              ▼              ▼
+┌──────────┐   ┌──────────┐   ┌──────────┐
+│PostgreSQL│   │  Qdrant  │   │ Combine  │
+│ Metadata │   │  Vector  │──▶│  Results │
+│  Query   │──▶│  Search  │   │  Rerank  │
+└──────────┘   └──────────┘   └────┬─────┘
+                                   │
+                                   ▼
+                            ┌─────────────┐
+                            │ Top 5 Games │
+                            └─────────────┘</code></pre>
+<hr>
+</section>
+<section id="summary-key-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="summary-key-takeaways">Summary: Key Takeaways</h2>
+<ol type="1">
+<li><strong>PostgreSQL</strong> stores structured data (games, players, positions) - fast for exact filtering</li>
+<li><strong>Qdrant</strong> stores vector embeddings - fast for semantic similarity</li>
+<li><strong>Hybrid search</strong> combines both: filter by metadata, rank by similarity</li>
+<li><strong>Reranking</strong> uses weighted scoring (70% vector, 30% keyword) to merge results</li>
+<li><strong>Every position</strong> (not just games) is searchable - find specific board states</li>
+<li><strong>No LLMs in query processing</strong> - deterministic intent parsing with opening catalogue</li>
+</ol>
+<p>This architecture enables queries like “French Defense endgames that end in a draw with queenside pawn majority” by: - <strong>Filtering</strong>: opening=french, result=draw, phase=endgame (PostgreSQL) - <strong>Similarity</strong>: positions resembling “queenside pawn majority” (Qdrant vectors) - <strong>Combining</strong>: games matching both criteria, ranked by total score</p>
+<hr>
+</section>
+<section id="code-references" class="level2">
+<h2 class="anchored" data-anchor-id="code-references">Code References</h2>
+<p>Key modules implementing each stage:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 23%">
+<col style="width: 26%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Stage</th>
+<th>Module</th>
+<th>Key Functions</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>PGN Parsing</strong></td>
+<td><code>lib/chess/pgn_parser.ml</code></td>
+<td><code>parse</code>, <code>fold_games</code></td>
+</tr>
+<tr class="even">
+<td><strong>FEN Generation</strong></td>
+<td><code>lib/chess/pgn_to_fen.ml</code></td>
+<td><code>fens_of_moves</code>, <code>apply_san</code></td>
+</tr>
+<tr class="odd">
+<td><strong>Opening Catalogue</strong></td>
+<td><code>lib/chess/openings.ml</code></td>
+<td><code>filters_for_text</code>, <code>slug_of_eco</code></td>
+</tr>
+<tr class="even">
+<td><strong>Postgres Storage</strong></td>
+<td><code>lib/storage/repo_postgres.ml</code></td>
+<td><code>insert_game</code>, <code>search_games</code></td>
+</tr>
+<tr class="odd">
+<td><strong>Ingestion</strong></td>
+<td><code>lib/cli/ingest_command.ml</code></td>
+<td><code>run</code></td>
+</tr>
+<tr class="even">
+<td><strong>Embedding Client</strong></td>
+<td><code>lib/embedding/embedding_client.ml</code></td>
+<td><code>embed_fens</code></td>
+</tr>
+<tr class="odd">
+<td><strong>Embedding Worker</strong></td>
+<td><code>services/embedding_worker/embedding_worker.ml</code></td>
+<td><code>work_loop</code>, <code>process_job</code></td>
+</tr>
+<tr class="even">
+<td><strong>Qdrant Storage</strong></td>
+<td><code>lib/storage/repo_qdrant.ml</code></td>
+<td><code>upsert_points</code>, <code>vector_search</code></td>
+</tr>
+<tr class="odd">
+<td><strong>Intent Analysis</strong></td>
+<td><code>lib/query/query_intent.ml</code></td>
+<td><code>analyse</code>, <code>parse_rating</code></td>
+</tr>
+<tr class="even">
+<td><strong>Hybrid Planner</strong></td>
+<td><code>lib/query/hybrid_planner.ml</code></td>
+<td><code>build_payload_filters</code>, <code>query_vector</code></td>
+</tr>
+<tr class="odd">
+<td><strong>Hybrid Executor</strong></td>
+<td><code>lib/query/hybrid_executor.ml</code></td>
+<td><code>execute</code>, <code>score_result</code></td>
+</tr>
+<tr class="even">
+<td><strong>Result Formatting</strong></td>
+<td><code>lib/query/result_formatter.ml</code></td>
+<td>Format results for CLI/API</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="future-enhancements" class="level2">
+<h2 class="anchored" data-anchor-id="future-enhancements">Future Enhancements</h2>
+<p>Current limitations and planned improvements:</p>
+<ol type="1">
+<li><strong>Live Qdrant Integration</strong>: Wire hybrid executor to real Qdrant queries (currently uses curated prototype data)</li>
+<li><strong>Reciprocal Rank Fusion (RRF)</strong>: More sophisticated result merging algorithm</li>
+<li><strong>Query Embedding</strong>: Embed user queries (not just keywords) for better semantic matching</li>
+<li><strong>Position Features</strong>: Extract tactical themes (pins, forks, sacrifices) during ingestion</li>
+<li><strong>Caching</strong>: Redis layer for frequently asked questions</li>
+<li><strong>Observability</strong>: Structured logging + Prometheus metrics for worker/API performance</li>
+</ol>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
